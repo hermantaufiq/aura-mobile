@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'app/app_theme.dart';
 import 'app/app_router.dart';
 import 'services/pocketbase_service.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,9 @@ void main() async {
 
   // Init PocketBase service
   await PocketBaseService.instance.init();
+
+  // Init notification service (STEP 18)
+  await NotificationService().init();
 
   // Init intl locale data (Bahasa Indonesia)
   await initializeDateFormatting('id_ID', null);

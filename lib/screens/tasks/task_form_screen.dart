@@ -6,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../providers/task_provider.dart';
+import '../../services/notification_service.dart';
 import '../../widgets/common/gradient_button.dart';
 import '../../widgets/common/aura_text_field.dart';
 import '../../widgets/common/aura_snackbar.dart';
@@ -26,6 +27,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
   String _status = 'pending';
   DateTime? _deadline;
   bool _isLoading = false;
+  bool _setReminder = false;
   bool get _isEdit => widget.taskId != null;
 
   @override
@@ -97,9 +99,24 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
 
     if (!mounted) return;
     setState(() => _isLoading = false);
+
     if (ok) {
+      // Schedule reminder if enabled and deadline is set
+      if (_setReminder && _deadline != null) {
+        final taskId = widget.taskId ??
+            DateTime.now().millisecondsSinceEpoch.toString();
+        await NotificationService().scheduleTaskReminder(
+          notifId: NotificationService.taskNotifId(taskId),
+          taskTitle: _titleCtrl.text.trim(),
+          deadline: _deadline!,
+        );
+      }
+      if (!mounted) return;
       AuraSnackbar.success(
-          context, _isEdit ? 'Tugas diperbarui' : 'Tugas dibuat');
+          context,
+          _isEdit
+              ? 'Tugas diperbarui${_setReminder ? ' + Pengingat diset' : ''}'
+              : 'Tugas dibuat${_setReminder ? ' + Pengingat diset' : ''}');
       context.pop();
     } else {
       AuraSnackbar.error(context, 'Gagal menyimpan tugas');
@@ -182,6 +199,61 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
                         ),
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Reminder Toggle (STEP 18)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _setReminder
+                      ? AppColors.primary.withValues(alpha: 0.08)
+                      : AppColors.bgSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _setReminder ? AppColors.primary : AppColors.border,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.notifications_outlined,
+                      color: _setReminder
+                          ? AppColors.primary
+                          : AppColors.textMuted,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Aktifkan Pengingat',
+                            style: AppTextStyles.labelLarge.copyWith(
+                              color: _setReminder
+                                  ? AppColors.primary
+                                  : AppColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            _deadline != null
+                                ? 'Notif 1 jam sebelum deadline'
+                                : 'Pilih deadline terlebih dahulu',
+                            style: AppTextStyles.caption,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _setReminder,
+                      onChanged: _deadline == null
+                          ? null
+                          : (v) => setState(() => _setReminder = v),
+                      activeThumbColor: AppColors.primary,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
