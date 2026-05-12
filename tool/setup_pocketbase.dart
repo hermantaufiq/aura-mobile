@@ -263,16 +263,13 @@ Map<String, dynamic> aiChatsSchema() => {
           },
         },
         {
-          'name': 'role',
-          'type': 'select',
+          'name': 'message',
+          'type': 'text',
           'required': true,
-          'options': {
-            'maxSelect': 1,
-            'values': ['user', 'assistant'],
-          },
+          'options': {'min': 1},
         },
         {
-          'name': 'content',
+          'name': 'response',
           'type': 'text',
           'required': true,
           'options': {'min': 1},
@@ -284,6 +281,7 @@ Map<String, dynamic> aiChatsSchema() => {
       'updateRule': null,
       'deleteRule': '@request.auth.id = user.id',
     };
+
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
 
