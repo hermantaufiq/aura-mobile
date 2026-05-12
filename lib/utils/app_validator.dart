@@ -5,7 +5,7 @@ class AppValidator {
   /// Email validation
   static String? email(String? value) {
     if (value == null || value.isEmpty) return 'Email wajib diisi';
-    final regex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    final regex = RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$');
     if (!regex.hasMatch(value.trim())) return 'Format email tidak valid';
     return null;
   }
