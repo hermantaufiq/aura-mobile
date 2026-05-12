@@ -223,7 +223,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                             ? null
                             : [
                                 BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.4),
+                                  color: AppColors.primary.withValues(alpha: 0.4),
                                   blurRadius: 12,
                                   offset: const Offset(0, 4),
                                 ),
@@ -306,7 +306,7 @@ class _ChatBubble extends StatelessWidget {
           boxShadow: isUser
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.25),
+                    color: AppColors.primary.withValues(alpha: 0.25),
                     blurRadius: 8,
                     offset: const Offset(0, 3),
                   ),
@@ -387,7 +387,7 @@ class _DotAnimationState extends State<_DotAnimation>
               height: 6,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.primary.withOpacity(opacity.clamp(0.2, 1.0)),
+                color: AppColors.primary.withValues(alpha: opacity.clamp(0.2, 1.0)),
               ),
             );
           }),

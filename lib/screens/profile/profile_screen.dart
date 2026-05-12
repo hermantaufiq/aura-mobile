@@ -29,7 +29,7 @@ class ProfileScreen extends ConsumerWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [AppColors.primary.withOpacity(0.15), Colors.transparent],
+                    colors: [AppColors.primary.withValues(alpha: 0.15), Colors.transparent],
                   ),
                 ),
                 child: Column(
@@ -49,7 +49,7 @@ class ProfileScreen extends ConsumerWidget {
                       children: [
                         CircleAvatar(
                           radius: 44,
-                          backgroundColor: AppColors.primary.withOpacity(0.2),
+                          backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                           child: Text(
                             user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
                             style: AppTextStyles.displaySmall.copyWith(color: AppColors.primary),
@@ -319,7 +319,7 @@ class _MenuItem extends StatelessWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: color, size: 20),

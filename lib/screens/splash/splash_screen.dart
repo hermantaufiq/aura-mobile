@@ -88,7 +88,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      AppColors.primary.withOpacity(0.15),
+                      AppColors.primary.withValues(alpha: 0.15),
                       Colors.transparent,
                     ],
                   ),
@@ -105,7 +105,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      AppColors.secondary.withOpacity(0.12),
+                      AppColors.secondary.withValues(alpha: 0.12),
                       Colors.transparent,
                     ],
                   ),
@@ -138,7 +138,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.4),
+                                  color: AppColors.primary.withValues(alpha: 0.4),
                                   blurRadius: 30,
                                   spreadRadius: 5,
                                 ),
@@ -174,7 +174,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
                           Transform.translate(
                             offset: Offset(0, _slideAnim.value),
-                            child: Text(
+                            child: const Text(
                               'AI Personal Assistant',
                               style: TextStyle(
                                 fontSize: 15,
@@ -215,7 +215,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 animation: _controller,
                 builder: (context, child) => Opacity(
                   opacity: _fadeAnim.value,
-                  child: Text(
+                  child: const Text(
                     'v1.0.0',
                     textAlign: TextAlign.center,
                     style: TextStyle(

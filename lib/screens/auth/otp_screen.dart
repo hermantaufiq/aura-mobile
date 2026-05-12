@@ -23,8 +23,12 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   @override
   void dispose() {
-    for (final c in _controllers) c.dispose();
-    for (final f in _focusNodes) f.dispose();
+    for (final c in _controllers) {
+      c.dispose();
+    }
+    for (final f in _focusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -82,8 +86,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                         height: 72,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.primary.withOpacity(0.15),
-                          border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                         ),
                         child: const Icon(Icons.mark_email_read_outlined,
                             color: AppColors.primary, size: 36),
@@ -120,21 +124,19 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 Center(
                   child: TextButton(
                     onPressed: () async {
+                      final ctx = context;
                       try {
                         await ref.read(authServiceProvider).resendOtp(
                               email: widget.email,
                             );
-                        if (mounted) {
-                          AuraSnackbar.success(
-                              context, 'OTP telah dikirim ulang');
-                        }
+                        if (!ctx.mounted) return;
+                        AuraSnackbar.success(ctx, 'OTP telah dikirim ulang');
                       } catch (_) {
-                        if (mounted) {
-                          AuraSnackbar.error(context, 'Gagal mengirim ulang OTP');
-                        }
+                        if (!ctx.mounted) return;
+                        AuraSnackbar.error(ctx, 'Gagal mengirim ulang OTP');
                       }
                     },
-                    child: Text(
+                    child: const Text(
                       'Kirim Ulang OTP',
                       style: TextStyle(color: AppColors.primary),
                     ),

@@ -70,7 +70,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -87,11 +87,11 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
             Text('Yang Kamu Dapatkan', style: AppTextStyles.headlineMedium),
             const SizedBox(height: 16),
 
-            _FeatureItem(icon: Icons.chat_bubble_outline_rounded, title: 'AI Chat Unlimited', desc: 'Chat tanpa batas setiap hari', color: AppColors.primary),
-            _FeatureItem(icon: Icons.insights_rounded, title: 'Smart Financial Insight', desc: 'Analisis mendalam keuangan AI', color: AppColors.success),
-            _FeatureItem(icon: Icons.analytics_outlined, title: 'Advanced Analytics', desc: 'Grafik dan tren keuangan', color: AppColors.secondary),
-            _FeatureItem(icon: Icons.auto_awesome, title: 'Smart Task Priority', desc: 'Rekomendasi prioritas AI', color: AppColors.accent),
-            _FeatureItem(icon: Icons.notifications_active_outlined, title: 'Smart Reminder', desc: 'Pengingat cerdas berbasis AI', color: AppColors.info),
+            const _FeatureItem(icon: Icons.chat_bubble_outline_rounded, title: 'AI Chat Unlimited', desc: 'Chat tanpa batas setiap hari', color: AppColors.primary),
+            const _FeatureItem(icon: Icons.insights_rounded, title: 'Smart Financial Insight', desc: 'Analisis mendalam keuangan AI', color: AppColors.success),
+            const _FeatureItem(icon: Icons.analytics_outlined, title: 'Advanced Analytics', desc: 'Grafik dan tren keuangan', color: AppColors.secondary),
+            const _FeatureItem(icon: Icons.auto_awesome, title: 'Smart Task Priority', desc: 'Rekomendasi prioritas AI', color: AppColors.accent),
+            const _FeatureItem(icon: Icons.notifications_active_outlined, title: 'Smart Reminder', desc: 'Pengingat cerdas berbasis AI', color: AppColors.info),
 
             const SizedBox(height: 24),
 
@@ -101,7 +101,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
               decoration: BoxDecoration(
                 color: AppColors.bgCard,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.gold.withOpacity(0.4), width: 1.5),
+                border: Border.all(color: AppColors.gold.withValues(alpha: 0.4), width: 1.5),
               ),
               child: Column(
                 children: [
@@ -121,7 +121,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFFF6B35)]),
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: AppColors.gold.withOpacity(0.4), blurRadius: 16, offset: const Offset(0, 6))],
+                    boxShadow: [BoxShadow(color: AppColors.gold.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 6))],
                   ),
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _upgrade,
@@ -171,7 +171,7 @@ class _FeatureItem extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: color, size: 22),
           ),
           const SizedBox(width: 14),

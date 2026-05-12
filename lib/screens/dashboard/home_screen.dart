@@ -86,7 +86,7 @@ class HomeScreen extends ConsumerWidget {
                           onTap: () => context.go('/profile'),
                           child: CircleAvatar(
                             radius: 20,
-                            backgroundColor: AppColors.primary.withOpacity(0.2),
+                            backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                             child: Text(
                               (user?.name.isNotEmpty == true)
                                   ? user!.name[0].toUpperCase()
@@ -197,7 +197,7 @@ class HomeScreen extends ConsumerWidget {
                     Text('Tugas Hari Ini', style: AppTextStyles.headlineSmall),
                     TextButton(
                       onPressed: () => context.go('/tasks'),
-                      child: Text('Lihat Semua',
+                      child: const Text('Lihat Semua',
                           style: TextStyle(color: AppColors.primary, fontSize: 12)),
                     ),
                   ],
@@ -212,7 +212,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   )
                 else if (taskState.todayTasks.isEmpty)
-                  _EmptyState(
+                  const _EmptyState(
                     icon: Icons.event_available_rounded,
                     message: 'Tidak ada tugas hari ini',
                     sub: 'Nikmati hari Anda! 🎉',
@@ -236,7 +236,7 @@ class HomeScreen extends ConsumerWidget {
                     Text('Transaksi Terbaru', style: AppTextStyles.headlineSmall),
                     TextButton(
                       onPressed: () => context.go('/finance'),
-                      child: Text('Lihat Semua',
+                      child: const Text('Lihat Semua',
                           style: TextStyle(color: AppColors.primary, fontSize: 12)),
                     ),
                   ],
@@ -244,7 +244,7 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
 
                 if (financeState.finances.isEmpty)
-                  _EmptyState(
+                  const _EmptyState(
                     icon: Icons.account_balance_wallet_outlined,
                     message: 'Belum ada transaksi',
                     sub: 'Catat pemasukan & pengeluaran Anda',
@@ -302,7 +302,7 @@ class _BalanceCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.3),
+            color: AppColors.primary.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -367,7 +367,7 @@ class _BalanceItem extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: color, size: 16),
@@ -450,9 +450,9 @@ class _QuickAction extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           children: [
@@ -520,7 +520,7 @@ class _TaskTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: _priorityColor.withOpacity(0.15),
+                color: _priorityColor.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -572,7 +572,7 @@ class _FinanceTile extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -654,7 +654,7 @@ class _PremiumBanner extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: AppColors.gold.withOpacity(0.3),
+              color: AppColors.gold.withValues(alpha: 0.3),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),

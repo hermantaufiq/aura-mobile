@@ -200,7 +200,7 @@ class _TaskCard extends StatelessWidget {
         color: AppColors.bgCard,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: task.isOverdue ? AppColors.error.withOpacity(0.4) : AppColors.border,
+          color: task.isOverdue ? AppColors.error.withValues(alpha: 0.4) : AppColors.border,
         ),
       ),
       child: Column(
@@ -292,10 +292,10 @@ class _TaskCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: _statusColor.withOpacity(0.15),
+                          color: _statusColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                              color: _statusColor.withOpacity(0.4)),
+                              color: _statusColor.withValues(alpha: 0.4)),
                         ),
                         child: Row(
                           children: [
@@ -380,7 +380,7 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(

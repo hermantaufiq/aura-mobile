@@ -103,7 +103,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.primary.withOpacity(0.35),
+                                  color: AppColors.primary.withValues(alpha: 0.35),
                                   blurRadius: 20,
                                   spreadRadius: 3,
                                 ),

@@ -176,8 +176,11 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
       double totalIncome = 0;
       double totalExpense = 0;
       for (final f in finances) {
-        if (f.isIncome) totalIncome += f.amount;
-        else totalExpense += f.amount;
+        if (f.isIncome) {
+          totalIncome += f.amount;
+        } else {
+          totalExpense += f.amount;
+        }
       }
 
       state = state.copyWith(
@@ -201,8 +204,11 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
       double totalIncome = 0;
       double totalExpense = 0;
       for (final f in finances) {
-        if (f.isIncome) totalIncome += f.amount;
-        else totalExpense += f.amount;
+        if (f.isIncome) {
+          totalIncome += f.amount;
+        } else {
+          totalExpense += f.amount;
+        }
       }
 
       state = state.copyWith(

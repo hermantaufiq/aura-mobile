@@ -292,7 +292,7 @@ class _PriorityChip extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? color.withOpacity(0.2) : AppColors.bgSurface,
+            color: selected ? color.withValues(alpha: 0.2) : AppColors.bgSurface,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: selected ? color : AppColors.border,
