@@ -61,8 +61,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/auth/otp',
         name: 'otp',
         builder: (context, state) {
-          final email = state.extra as String? ?? '';
-          return OtpScreen(email: email);
+          final extra = state.extra;
+          String email = '';
+          String password = '';
+          if (extra is Map<String, dynamic>) {
+            email = extra['email'] as String? ?? '';
+            password = extra['password'] as String? ?? '';
+          } else if (extra is String) {
+            email = extra;
+          }
+          return OtpScreen(email: email, password: password);
         },
       ),
 

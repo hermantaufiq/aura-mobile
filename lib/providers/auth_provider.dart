@@ -113,6 +113,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Verify OTP lalu auto-login — tidak perlu login manual lagi
+  Future<bool> verifyOtpAndLogin({
+    required String email,
+    required String otp,
+    required String password,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      // Step 1: Verify OTP
+      final verified = await _authService.verifyOtp(email: email, otp: otp);
+      if (!verified) {
+        state = state.copyWith(isLoading: false, error: 'Kode OTP tidak valid.');
+        return false;
+      }
+      // Step 2: Auto-login setelah OTP berhasil
+      final user = await _authService.login(email: email, password: password);
+      state = AuthState(user: user, isLoggedIn: true);
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Verifikasi gagal. Coba lagi.',
+      );
+      return false;
+    }
+  }
+
   Future<bool> verifyOtp({
     required String email,
     required String otp,

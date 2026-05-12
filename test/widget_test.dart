@@ -158,7 +158,7 @@ void main() {
   group('[Model] UserModel', () {
     final now = DateTime.now();
 
-    final user = UserModel(
+    const user = UserModel(
       id: 'u1',
       name: 'Ahmad Skripsi',
       email: 'ahmad@test.com',

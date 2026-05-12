@@ -9,7 +9,8 @@ import '../../widgets/common/aura_snackbar.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
   final String email;
-  const OtpScreen({super.key, required this.email});
+  final String password;
+  const OtpScreen({super.key, required this.email, this.password = ''});
 
   @override
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
@@ -40,17 +41,37 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       return;
     }
     setState(() => _isLoading = true);
-    final success = await ref.read(authStateProvider.notifier).verifyOtp(
-          email: widget.email,
-          otp: _otp,
-        );
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    if (success) {
-      AuraSnackbar.success(context, 'Verifikasi berhasil! Silakan login.');
-      context.go('/auth/login');
+
+    // Jika ada password → verifikasi OTP + auto-login langsung
+    if (widget.password.isNotEmpty) {
+      final success = await ref.read(authStateProvider.notifier).verifyOtpAndLogin(
+            email: widget.email,
+            otp: _otp,
+            password: widget.password,
+          );
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      if (success) {
+        // Router otomatis redirect ke /home karena isLoggedIn = true
+        AuraSnackbar.success(context, 'Verifikasi berhasil! Selamat datang.');
+      } else {
+        final err = ref.read(authStateProvider).error ?? 'Kode OTP tidak valid.';
+        AuraSnackbar.error(context, err);
+      }
     } else {
-      AuraSnackbar.error(context, 'Kode OTP tidak valid.');
+      // Fallback: verifyOtp biasa (tanpa auto-login)
+      final success = await ref.read(authStateProvider.notifier).verifyOtp(
+            email: widget.email,
+            otp: _otp,
+          );
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      if (success) {
+        AuraSnackbar.success(context, 'Verifikasi berhasil! Silakan login.');
+        context.go('/auth/login');
+      } else {
+        AuraSnackbar.error(context, 'Kode OTP tidak valid.');
+      }
     }
   }
 

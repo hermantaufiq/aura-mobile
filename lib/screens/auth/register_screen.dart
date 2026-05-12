@@ -58,8 +58,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
         );
     if (!mounted) return;
     if (success) {
-      AuraSnackbar.success(context, 'Registrasi berhasil! Verifikasi email Anda.');
-      context.go('/auth/otp', extra: _emailCtrl.text.trim());
+      AuraSnackbar.success(context, 'Registrasi berhasil! Masukkan kode OTP.');
+      context.go('/auth/otp', extra: {
+        'email': _emailCtrl.text.trim(),
+        'password': _passCtrl.text,
+      });
     } else {
       final error = ref.read(authStateProvider).error ?? 'Registrasi gagal.';
       AuraSnackbar.error(context, error);
