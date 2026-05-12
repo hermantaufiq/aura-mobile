@@ -28,6 +28,7 @@ dependencies:
 
   # Backend - PocketBase
   pocketbase: ^0.23.3
+  http: ^1.2.2
 
   # HTTP Client
   dio: ^5.9.2
