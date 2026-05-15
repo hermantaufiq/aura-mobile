@@ -51,18 +51,24 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
+    final email = _emailCtrl.text.trim();
+    final password = _passCtrl.text;
+    
     final success = await ref.read(authStateProvider.notifier).register(
           name: _nameCtrl.text.trim(),
-          email: _emailCtrl.text.trim(),
-          password: _passCtrl.text,
+          email: email,
+          password: password,
         );
     if (!mounted) return;
     if (success) {
+      // Store email & password in provider untuk OTP screen
+      ref.read(registrationDataProvider.notifier).state = {
+        'email': email,
+        'password': password,
+      };
+      
       AuraSnackbar.success(context, 'Registrasi berhasil! Masukkan kode OTP.');
-      context.go('/auth/otp', extra: {
-        'email': _emailCtrl.text.trim(),
-        'password': _passCtrl.text,
-      });
+      context.go('/auth/otp');
     } else {
       final error = ref.read(authStateProvider).error ?? 'Registrasi gagal.';
       AuraSnackbar.error(context, error);

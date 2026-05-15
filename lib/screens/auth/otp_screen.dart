@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:logger/logger.dart';
+import 'dart:async';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../providers/auth_provider.dart';
@@ -8,9 +10,7 @@ import '../../widgets/common/gradient_button.dart';
 import '../../widgets/common/aura_snackbar.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
-  final String email;
-  final String password;
-  const OtpScreen({super.key, required this.email, this.password = ''});
+  const OtpScreen({super.key});
 
   @override
   ConsumerState<OtpScreen> createState() => _OtpScreenState();
@@ -21,9 +21,36 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
   bool _isLoading = false;
+  late Timer _timer;
+  int _remainingSeconds = 300; // 5 minutes
+  bool _isExpired = false;
+  final _logger = Logger();
+
+  @override
+  void initState() {
+    super.initState();
+    _logger.i('🎬 OTP Screen Initialized');
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds > 0) {
+        setState(() {
+          _remainingSeconds--;
+        });
+      } else {
+        setState(() {
+          _isExpired = true;
+        });
+        _timer.cancel();
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _timer.cancel();
     for (final c in _controllers) {
       c.dispose();
     }
@@ -33,21 +60,43 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     super.dispose();
   }
 
-  String get _otp => _controllers.map((c) => c.text).join();
+  String get _otp => _controllers.map((c) => c.text).join().trim();
+
+  String _formatTime(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+  }
 
   Future<void> _verify() async {
-    if (_otp.length < 6) {
+    final trimmedOtp = _otp.trim();
+    final registrationData = ref.read(registrationDataProvider);
+    final email = registrationData['email'] ?? '';
+    final password = registrationData['password'] ?? '';
+    
+    _logger.i('🔎 OTP Screen - Verifying OTP');
+    _logger.i('📱 Individual inputs: ${_controllers.map((c) => '"${c.text}"').join(', ')}');
+    _logger.i('📝 Combined OTP: "$trimmedOtp" (length: ${trimmedOtp.length})');
+    _logger.i('📧 Email to send: "$email" (empty: ${email.isEmpty})');
+    
+    if (trimmedOtp.length < 6) {
       AuraSnackbar.error(context, 'Masukkan 6 digit kode OTP');
       return;
     }
+
+    if (_isExpired) {
+      AuraSnackbar.error(context, 'Kode OTP sudah kadaluarsa. Silakan minta kode baru.');
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     // Jika ada password → verifikasi OTP + auto-login langsung
-    if (widget.password.isNotEmpty) {
+    if (password.isNotEmpty) {
       final success = await ref.read(authStateProvider.notifier).verifyOtpAndLogin(
-            email: widget.email,
-            otp: _otp,
-            password: widget.password,
+            email: email,
+            otp: trimmedOtp,
+            password: password,
           );
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -61,8 +110,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     } else {
       // Fallback: verifyOtp biasa (tanpa auto-login)
       final success = await ref.read(authStateProvider.notifier).verifyOtp(
-            email: widget.email,
-            otp: _otp,
+            email: email,
+            otp: trimmedOtp,
           );
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -77,6 +126,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final registrationData = ref.watch(registrationDataProvider);
+    final email = registrationData['email'] ?? '';
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -117,7 +169,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       Text('Verifikasi Email', style: AppTextStyles.displaySmall),
                       const SizedBox(height: 8),
                       Text(
-                        'Masukkan kode OTP yang dikirim ke\n${widget.email}',
+                        'Masukkan kode OTP yang dikirim ke\n$email',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.bodyMedium.copyWith(
                           color: AppColors.textSecondary,
@@ -133,33 +185,102 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: List.generate(6, (i) => _buildOtpBox(i)),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 32),
+
+                // Timer Display
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: _isExpired
+                          ? AppColors.error.withValues(alpha: 0.15)
+                          : _remainingSeconds < 60
+                              ? AppColors.warning.withValues(alpha: 0.15)
+                              : AppColors.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _isExpired
+                            ? AppColors.error.withValues(alpha: 0.3)
+                            : _remainingSeconds < 60
+                                ? AppColors.warning.withValues(alpha: 0.3)
+                                : AppColors.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isExpired ? Icons.error_outline : Icons.schedule,
+                          color: _isExpired
+                              ? AppColors.error
+                              : _remainingSeconds < 60
+                                  ? AppColors.warning
+                                  : AppColors.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          _isExpired
+                              ? 'Kode OTP Kadaluarsa'
+                              : 'Berlaku dalam: ${_formatTime(_remainingSeconds)}',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: _isExpired
+                                ? AppColors.error
+                                : _remainingSeconds < 60
+                                    ? AppColors.warning
+                                    : AppColors.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
 
                 GradientButton(
-                  text: 'Verifikasi',
+                  text: _isExpired ? 'OTP Kadaluarsa - Kirim Ulang' : 'Verifikasi',
                   isLoading: _isLoading,
-                  onPressed: _isLoading ? null : _verify,
+                  onPressed: _isExpired ? null : (_isLoading ? null : _verify),
                 ),
                 const SizedBox(height: 20),
 
                 Center(
                   child: TextButton(
-                    onPressed: () async {
-                      final ctx = context;
-                      try {
-                        await ref.read(authServiceProvider).resendOtp(
-                              email: widget.email,
-                            );
-                        if (!ctx.mounted) return;
-                        AuraSnackbar.success(ctx, 'OTP telah dikirim ulang');
-                      } catch (_) {
-                        if (!ctx.mounted) return;
-                        AuraSnackbar.error(ctx, 'Gagal mengirim ulang OTP');
-                      }
-                    },
-                    child: const Text(
-                      'Kirim Ulang OTP',
-                      style: TextStyle(color: AppColors.primary),
+                    onPressed: _isLoading || (_remainingSeconds > 10 && !_isExpired)
+                        ? null
+                        : () async {
+                            final ctx = context;
+                            final registrationData = ref.read(registrationDataProvider);
+                            final email = registrationData['email'] ?? '';
+                            try {
+                              await ref
+                                  .read(authServiceProvider)
+                                  .resendOtp(email: email);
+                              if (!ctx.mounted) return;
+                              _timer.cancel();
+                              setState(() {
+                                _remainingSeconds = 300;
+                                _isExpired = false;
+                              });
+                              _startTimer();
+                              AuraSnackbar.success(
+                                  ctx, 'OTP telah dikirim ulang');
+                            } catch (_) {
+                              if (!ctx.mounted) return;
+                              AuraSnackbar.error(
+                                  ctx, 'Gagal mengirim ulang OTP');
+                            }
+                          },
+                    child: Text(
+                      _remainingSeconds > 10 && !_isExpired
+                          ? 'Kirim Ulang OTP (dalam ${_formatTime(_remainingSeconds)})'
+                          : 'Kirim Ulang OTP',
+                      style: TextStyle(
+                        color: _remainingSeconds > 10 && !_isExpired
+                            ? AppColors.textSecondary
+                            : AppColors.primary,
+                      ),
                     ),
                   ),
                 ),

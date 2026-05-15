@@ -22,13 +22,17 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  // ── FIX: Buat router SEKALI, pakai refresh() saat auth berubah ──────────
+  // Jangan ref.watch di sini! Setiap kali auth state berubah, router lama
+  // dibuang dan GoRouter baru dibuat → navigasi ke /auth/otp hilang.
 
-  return GoRouter(
+  final router = GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/splash',
     debugLogDiagnostics: false,
     redirect: (context, state) {
+      // Baca state saat redirect dievaluasi (bukan saat router dibuat)
+      final authState = ref.read(authStateProvider);
       final isLoggedIn = authState.isLoggedIn;
       final isOnSplash = state.matchedLocation == '/splash';
       final isOnAuth = state.matchedLocation.startsWith('/auth');
@@ -60,18 +64,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/auth/otp',
         name: 'otp',
-        builder: (context, state) {
-          final extra = state.extra;
-          String email = '';
-          String password = '';
-          if (extra is Map<String, dynamic>) {
-            email = extra['email'] as String? ?? '';
-            password = extra['password'] as String? ?? '';
-          } else if (extra is String) {
-            email = extra;
-          }
-          return OtpScreen(email: email, password: password);
-        },
+        builder: (context, state) => const OtpScreen(),
       ),
 
       // Main Shell with Bottom Navigation
@@ -177,4 +170,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ),
   );
+
+  // Refresh router redirect setiap kali auth state berubah
+  ref.listen(authStateProvider, (_, __) => router.refresh());
+
+  return router;
 });

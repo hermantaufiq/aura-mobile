@@ -220,6 +220,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
 // Providers
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
+// Store registration email & password for OTP screen
+final registrationDataProvider = StateProvider<Map<String, String>>((ref) {
+  return {'email': '', 'password': ''};
+});
+
 final authStateProvider =
     StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier(ref.read(authServiceProvider));
