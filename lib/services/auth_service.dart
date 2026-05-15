@@ -344,7 +344,7 @@ class AuthService {
     final otp = random.toString().padLeft(6, '0');
     // Display OTP in console for testing
     _logger.i('🔐 Generated OTP: $otp (type: String, length: ${otp.length})');
-    print('\n⚠️  DEV MODE: OTP Code = $otp\n');
+    _logger.i('\n⚠️  DEV MODE: OTP Code = $otp\n');
     return otp;
   }
 
