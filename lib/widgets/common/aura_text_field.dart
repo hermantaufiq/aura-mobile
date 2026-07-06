@@ -46,12 +46,12 @@ class AuraTextField extends StatelessWidget {
       maxLines: maxLines,
       readOnly: readOnly,
       onTap: onTap,
-      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+      style: TextStyle(color: AppColors.adaptiveTextPrimary(context), fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
         helperText: helperText,
-        helperStyle: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+        helperStyle: TextStyle(color: AppColors.adaptiveTextMuted(context), fontSize: 11),
         prefixIcon: Icon(prefixIcon, size: 20),
         suffixIcon: suffixIcon != null
             ? GestureDetector(

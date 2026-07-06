@@ -24,6 +24,7 @@ class TaskService {
       filter: filter,
       sort: '-created',
       perPage: 200,
+      headers: PocketBaseService.instance.authHeaders(),
     );
 
     return result.items
@@ -33,7 +34,10 @@ class TaskService {
 
   // Get single task
   Future<TaskModel> getTask(String taskId) async {
-    final record = await _pb.collection(AppConstants.colTasks).getOne(taskId);
+    final record = await _pb.collection(AppConstants.colTasks).getOne(
+      taskId,
+      headers: PocketBaseService.instance.authHeaders(),
+    );
     return TaskModel.fromJson({...record.toJson(), ...record.data});
   }
 
@@ -58,7 +62,10 @@ class TaskService {
       body['deadline'] = deadline.toIso8601String();
     }
 
-    final record = await _pb.collection(AppConstants.colTasks).create(body: body);
+    final record = await _pb.collection(AppConstants.colTasks).create(
+      body: body,
+      headers: PocketBaseService.instance.authHeaders(),
+    );
     return TaskModel.fromJson({...record.toJson(), ...record.data});
   }
 
@@ -78,16 +85,21 @@ class TaskService {
     if (priority != null) body['priority'] = priority;
     if (status != null) body['status'] = status;
 
-    final record = await _pb
-        .collection(AppConstants.colTasks)
-        .update(taskId, body: body);
+    final record = await _pb.collection(AppConstants.colTasks).update(
+      taskId,
+      body: body,
+      headers: PocketBaseService.instance.authHeaders(),
+    );
 
     return TaskModel.fromJson({...record.toJson(), ...record.data});
   }
 
   // Delete task
   Future<void> deleteTask(String taskId) async {
-    await _pb.collection(AppConstants.colTasks).delete(taskId);
+    await _pb.collection(AppConstants.colTasks).delete(
+      taskId,
+      headers: PocketBaseService.instance.authHeaders(),
+    );
   }
 
   // Update task status only
@@ -98,6 +110,7 @@ class TaskService {
     final record = await _pb.collection(AppConstants.colTasks).update(
       taskId,
       body: {'status': status},
+      headers: PocketBaseService.instance.authHeaders(),
     );
     return TaskModel.fromJson({...record.toJson(), ...record.data});
   }
@@ -112,6 +125,7 @@ class TaskService {
       filter:
           'user = "$userId" && deadline >= "${start.toIso8601String()}" && deadline < "${end.toIso8601String()}"',
       sort: 'priority',
+      headers: PocketBaseService.instance.authHeaders(),
     );
 
     return result.items

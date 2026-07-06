@@ -54,17 +54,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
     final email = _emailCtrl.text.trim();
     final password = _passCtrl.text;
     
-    final success = await ref.read(authStateProvider.notifier).register(
+    final otp = await ref.read(authStateProvider.notifier).register(
           name: _nameCtrl.text.trim(),
           email: email,
           password: password,
         );
     if (!mounted) return;
-    if (success) {
-      // Store email & password in provider untuk OTP screen
+    if (otp != null) {
+      // Store email, password & otp in provider untuk OTP screen
       ref.read(registrationDataProvider.notifier).state = {
         'email': email,
         'password': password,
+        'otp': otp,
       };
       
       AuraSnackbar.success(context, 'Registrasi berhasil! Masukkan kode OTP.');

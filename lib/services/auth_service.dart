@@ -1,3 +1,7 @@
+import 'dart:typed_data';
+
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:logger/logger.dart';
 import '../core/constants/app_constants.dart';
@@ -25,10 +29,10 @@ class AuthService {
     try {
       final record = await _pb.collection(AppConstants.colUsers).create(
         body: {
-          'name': name,
           'email': email,
           'password': password,
           'passwordConfirm': password,
+          'name': name,
           'role': 'user',
           'is_verified': false,
           'otp_code': otp,
@@ -37,43 +41,16 @@ class AuthService {
         },
       );
 
-      final userId = record.id;
-      _logger.i('✅ User created with ID: $userId');
-      _logger.i('   Record email in DB: "${record.data['email']}"');
-      _logger.i('   Record otp_code in DB: "${record.data['otp_code']}"');
-
-      // Verify immediately by fetching the record
-      await Future.delayed(const Duration(milliseconds: 100));
-      final verifyRecord = await _pb.collection(AppConstants.colUsers).getOne(userId);
-      final savedOtp = verifyRecord.data['otp_code'];
-      final savedEmail = verifyRecord.data['email'];
-      
-      _logger.i('🔍 Verification after create:');
-      _logger.i('   Email in DB: "$savedEmail"');
-      _logger.i('   OTP in DB: "$savedOtp"');
-      _logger.i('   OTP type: ${savedOtp.runtimeType}');
-      _logger.i('   Full data keys: ${verifyRecord.data.keys.toList()}');
-      
-      if (savedOtp == null) {
-        _logger.e('❌ CRITICAL: OTP is NULL after save!');
-      } else if (savedOtp.toString().isEmpty) {
-        _logger.e('❌ CRITICAL: OTP is EMPTY after save!');
-      } else if (savedOtp.toString() != otp) {
-        _logger.e('❌ CRITICAL: OTP MISMATCH! Generated: "$otp", Saved: "$savedOtp"');
-      } else {
-        _logger.i('✅ OTP saved correctly in database');
-      }
-
-      // Send OTP via PocketBase email
-      await _sendOtpEmail(email: email, otp: otp);
-      
+      _logger.i('✅ User created with ID: ${record.id}');
       _logger.i('✅ === REGISTRATION SUCCESS ===\n');
 
-      return UserModel.fromJson(record.toJson());
-    } catch (e, stackTrace) {
+      // Merge record.toJson() with record.data to ensure custom fields like otp_code are included
+      return UserModel.fromJson({
+        ...record.toJson(),
+        ...record.data,
+      });
+    } catch (e) {
       _logger.e('❌ Registration failed: $e');
-      _logger.e('Stack: $stackTrace');
-      _logger.e('❌ === REGISTRATION FAILED ===\n');
       rethrow;
     }
   }
@@ -101,7 +78,6 @@ class AuthService {
       ...record.data,
     });
 
-    // Save auth state
     await PocketBaseService.instance.saveAuthState(
       token: _pb.authStore.token,
       userId: record.id,
@@ -109,6 +85,43 @@ class AuthService {
       name: user.name,
       role: user.role,
       isPremium: user.isPremium,
+      user: user,
+    );
+
+    return user;
+  }
+
+  // Admin Login
+  Future<UserModel> adminLogin({
+    required String email,
+    required String password,
+  }) async {
+    final authData = await _pb
+        .collection(AppConstants.colUsers)
+        .authWithPassword(email, password);
+
+    final record = authData.record;
+    final role = record.data['role'] ?? 'user';
+
+    // Block normal users from admin login
+    if (role != 'admin') {
+      _pb.authStore.clear();
+      throw Exception('user_role_not_admin');
+    }
+
+    final user = UserModel.fromJson({
+      ...record.toJson(),
+      ...record.data,
+    });
+
+    await PocketBaseService.instance.saveAuthState(
+      token: _pb.authStore.token,
+      userId: record.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      isPremium: user.isPremium,
+      user: user,
     );
 
     return user;
@@ -119,25 +132,50 @@ class AuthService {
     await PocketBaseService.instance.clearAuthState();
   }
 
-  // Get current user
-  Future<UserModel?> getCurrentUser() async {
+  /// Ambil user dari cache lokal (tanpa network).
+  Future<UserModel?> loadLocalUser() =>
+      PocketBaseService.instance.loadCachedUser();
+
+  /// Sinkronkan user dari server (opsional, tidak memutus sesi jika gagal).
+  Future<UserModel?> syncUserFromServer() async {
+    if (!PocketBaseService.instance.hasAuthToken) return null;
+
+    final headers = PocketBaseService.instance.authHeaders();
+
     try {
-      if (!PocketBaseService.instance.isAuthenticated) return null;
+      final userId = await PocketBaseService.instance.getSavedUserId();
+      if (userId != null && userId.isNotEmpty) {
+        final record = await _pb.collection(AppConstants.colUsers).getOne(
+              userId,
+              headers: headers,
+            );
+        if (_pb.authStore.record == null) {
+          _pb.authStore.save(_pb.authStore.token, record);
+        }
+        final user = _recordToUser(record);
+        await PocketBaseService.instance.saveUserCache(user);
+        await PocketBaseService.instance.persistAuthNow();
+        return user;
+      }
+    } catch (_) {}
 
-      final userId = PocketBaseService.instance.currentUserId;
-      if (userId.isEmpty) return null;
+    try {
+      final auth = await _pb.collection(AppConstants.colUsers).authRefresh(
+            headers: headers,
+          );
+      final user = _recordToUser(auth.record);
+      await PocketBaseService.instance.saveUserCache(user);
+      await PocketBaseService.instance.persistAuthNow();
+      return user;
+    } catch (_) {}
 
-      final record = await _pb
-          .collection(AppConstants.colUsers)
-          .getOne(userId);
+    return null;
+  }
 
-      return UserModel.fromJson({
-        ...record.toJson(),
-        ...record.data,
-      });
-    } catch (e) {
-      return null;
-    }
+  // Get current user — coba server dulu, fallback cache
+  Future<UserModel?> getCurrentUser() async {
+    final fresh = await syncUserFromServer();
+    return fresh ?? loadLocalUser();
   }
 
   // Verify OTP
@@ -145,92 +183,60 @@ class AuthService {
     required String email,
     required String otp,
   }) async {
+    final inputOtp = otp.trim();
+    _logger.i('🔍 === OTP VERIFICATION START ===');
+    _logger.i('📧 Email: $email');
+    _logger.i('🔐 Input OTP: "$inputOtp"');
+
     try {
-      final inputOtp = otp.trim();
-      _logger.i('🔍 === OTP VERIFICATION START ===');
-      _logger.i('📧 Email: $email');
-      _logger.i('🔐 Input OTP: "$inputOtp" (length: ${inputOtp.length})');
+      // Step 1: Cari berdasarkan email
+      _logger.i('📋 Step 1: Querying user for email "$email"');
+      final result = await _pb.collection(AppConstants.colUsers).getList(
+            filter: 'email = "${email.replaceAll('"', '\\"')}"',
+          );
 
-      // Step 1: Find user
-      _logger.i('📋 Step 1: Querying for email "$email"');
-      
-      // First, list all users for debugging
-      _logger.i('   Debugging: Listing all users in collection...');
-      try {
-        final allRecords = await _pb.collection(AppConstants.colUsers).getList(perPage: 100);
-        _logger.i('   Total users in DB: ${allRecords.items.length}');
-        for (var item in allRecords.items) {
-          _logger.i('   - Email: "${item.data['email']}"');
+      RecordModel? matchedRecord;
+      if (result.items.isNotEmpty) {
+        matchedRecord = result.items.first;
+      } else {
+        // Fallback: jika tidak ditemukan via email, coba cari via OTP langsung (dev-mode fallback)
+        _logger.w('⚠️ User email not found. Trying fallback search by OTP...');
+        final otpResult = await _pb.collection(AppConstants.colUsers).getList(
+              filter: 'otp_code = "$inputOtp"',
+            );
+        if (otpResult.items.isNotEmpty) {
+          matchedRecord = otpResult.items.first;
         }
-      } catch (e) {
-        _logger.w('   Could not list users: $e');
       }
+
+      if (matchedRecord == null) {
+        _logger.e('❌ Verification FAILED: No record found for email: $email');
+        return false;
+      }
+
+      // Step 2: Cocokkan OTP
+      final dbOtp = matchedRecord.getStringValue('otp_code').isNotEmpty
+          ? matchedRecord.getStringValue('otp_code')
+          : matchedRecord.data['otp_code']?.toString() ?? '';
+
+      _logger.i('📋 Step 2: Comparing input OTP "$inputOtp" with database OTP "$dbOtp"');
       
-      // Now query for specific email
-      final records = await _pb.collection(AppConstants.colUsers).getList(
-        filter: 'email = "${email.replaceAll('"', '\\"')}"',
-      );
-
-      if (records.items.isEmpty) {
-        _logger.e('❌ Step 1 FAILED: No user found with email: $email');
+      if (dbOtp != inputOtp) {
+        _logger.e('❌ Verification FAILED: OTP mismatch!');
         return false;
       }
 
-      final record = records.items.first;
-      final userId = record.id;
-      _logger.i('✅ Step 1 SUCCESS: Found user with ID: $userId');
+      // Step 3: Update status verifikasi
+      _logger.i('📋 Step 3: Marking user as verified');
+      await _pb.collection(AppConstants.colUsers).update(matchedRecord.id, body: {
+        'is_verified': true,
+        'otp_code': '', // Hapus OTP setelah sukses
+      });
 
-      // Step 2: Get OTP from database
-      _logger.i('📋 Step 2: Retrieving OTP from database');
-      final dbRecord = await _pb.collection(AppConstants.colUsers).getOne(userId);
-      final otpFromDb = dbRecord.data['otp_code'];
-      
-      _logger.i('   Raw value: "$otpFromDb"');
-      _logger.i('   Type: ${otpFromDb.runtimeType}');
-      _logger.i('   Is null: ${otpFromDb == null}');
-      _logger.i('   Is empty: ${otpFromDb.toString().isEmpty}');
-
-      if (otpFromDb == null || otpFromDb.toString().isEmpty) {
-        _logger.e('❌ Step 2 FAILED: OTP from database is null or empty!');
-        _logger.i('   All record data: ${dbRecord.data}');
-        return false;
-      }
-
-      // Step 3: Compare OTPs
-      final dbOtpString = otpFromDb.toString().trim();
-      _logger.i('📋 Step 3: Comparing OTPs');
-      _logger.i('   Database OTP: "$dbOtpString" (length: ${dbOtpString.length})');
-      _logger.i('   Input OTP:    "$inputOtp" (length: ${inputOtp.length})');
-      _logger.i('   Match: ${dbOtpString == inputOtp}');
-
-      if (dbOtpString != inputOtp) {
-        _logger.e('❌ Step 3 FAILED: OTP mismatch!');
-        // Byte-by-byte comparison
-        _logger.w('   Byte comparison:');
-        for (int i = 0; i < (dbOtpString.length > inputOtp.length ? dbOtpString.length : inputOtp.length); i++) {
-          final dbChar = i < dbOtpString.length ? dbOtpString[i] : '?';
-          final inputChar = i < inputOtp.length ? inputOtp[i] : '?';
-          _logger.w('   [$i] DB: "$dbChar" vs Input: "$inputChar"');
-        }
-        return false;
-      }
-
-      // Step 4: Mark as verified
-      _logger.i('📋 Step 4: Marking user as verified');
-      await _pb.collection(AppConstants.colUsers).update(
-        userId,
-        body: {
-          'is_verified': true,
-          'otp_code': '',
-        },
-      );
-      _logger.i('✅ Step 4 SUCCESS: User marked as verified');
-      _logger.i('✅ === OTP VERIFICATION SUCCESS ===\n');
+      _logger.i('✅ === VERIFICATION SUCCESS ===\n');
       return true;
-    } catch (e, stackTrace) {
-      _logger.e('❌ Exception during OTP verification: $e');
-      _logger.e('Stack trace: $stackTrace');
-      _logger.i('❌ === OTP VERIFICATION FAILED ===\n');
+    } catch (e) {
+      _logger.e('❌ Verification Error: $e');
       return false;
     }
   }
@@ -241,25 +247,32 @@ class AuthService {
     _logger.i('🔄 Resending OTP for: $email');
     _logger.i('📝 New OTP generated: $otp');
 
-    final records = await _pb.collection(AppConstants.colUsers).getList(
+    final result = await _pb.collection(AppConstants.colUsers).getList(
       filter: 'email = "${email.replaceAll('"', '\\"')}"',
     );
 
-    if (records.items.isNotEmpty) {
-      final userId = records.items.first.id;
-      _logger.i('👤 User ID: $userId');
-      
-      final updateResult = await _pb.collection(AppConstants.colUsers).update(
+    RecordModel? record;
+    if (result.items.isNotEmpty) {
+      record = result.items.first;
+    } else {
+      // Fallback: cari user yang emailnya kosong jika di dev mode
+      final all = await _pb.collection(AppConstants.colUsers).getList(perPage: 50);
+      for (var item in all.items) {
+        if (item.getStringValue('email') == email || item.getStringValue('email') == '') {
+          record = item;
+          break;
+        }
+      }
+    }
+
+    if (record != null) {
+      final userId = record.id;
+      _logger.i('👤 User ID found for resend: $userId');
+      await _pb.collection(AppConstants.colUsers).update(
         userId,
         body: {'otp_code': otp},
       );
-      
-      final updatedOtp = updateResult.data['otp_code'];
-      _logger.i('✅ OTP updated in database. New OTP: $updatedOtp (type: ${updatedOtp.runtimeType})');
-      
-      if (updatedOtp.toString() != otp) {
-        _logger.e('⚠️  WARNING: OTP mismatch during resend! Generated: "$otp", Updated: "$updatedOtp"');
-      }
+      _logger.i('✅ OTP updated in database');
     } else {
       _logger.e('❌ User not found for resend OTP: $email');
     }
@@ -271,16 +284,103 @@ class AuthService {
   Future<UserModel> updateProfile({
     required String userId,
     String? name,
-    String? avatar,
   }) async {
     final body = <String, dynamic>{};
     if (name != null) body['name'] = name;
-    if (avatar != null) body['avatar'] = avatar;
 
     final record = await _pb
         .collection(AppConstants.colUsers)
         .update(userId, body: body);
 
+    return _recordToUser(record);
+  }
+
+  Future<UserModel> uploadAvatar({
+    required String userId,
+    required Uint8List imageBytes,
+    required String filename,
+  }) async {
+    final headers = PocketBaseService.instance.authHeaders();
+    if (headers.isEmpty) {
+      throw Exception('Sesi habis. Silakan login ulang.');
+    }
+
+    if (imageBytes.isEmpty) {
+      throw Exception('File foto tidak valid. Coba pilih foto lain.');
+    }
+
+    final multipartFile = http.MultipartFile.fromBytes(
+      'avatar',
+      imageBytes,
+      filename: filename,
+      contentType: _avatarContentType(filename),
+    );
+
+    try {
+      final record = await _pb.collection(AppConstants.colUsers).update(
+            userId,
+            files: [multipartFile],
+            headers: headers,
+          );
+      return _recordToUser(record);
+    } on ClientException catch (e) {
+      _logger.e('Avatar upload failed: ${e.response}');
+      throw Exception(_avatarUploadErrorMessage(e));
+    } catch (e) {
+      _logger.e('Avatar upload error: $e');
+      final msg = e.toString();
+      if (msg.contains('Failed to fetch') || msg.contains('Connection')) {
+        throw Exception(
+          'Tidak bisa terhubung ke server. Pastikan PocketBase berjalan di localhost:8090.',
+        );
+      }
+      throw Exception('Gagal mengunggah foto. Coba lagi.');
+    }
+  }
+
+  MediaType _avatarContentType(String filename) {
+    final ext = filename.split('.').last.toLowerCase();
+    return switch (ext) {
+      'png' => MediaType('image', 'png'),
+      'webp' => MediaType('image', 'webp'),
+      'gif' => MediaType('image', 'gif'),
+      _ => MediaType('image', 'jpeg'),
+    };
+  }
+
+  String _avatarUploadErrorMessage(ClientException e) {
+    final data = e.response['data'];
+    if (data is Map && data['avatar'] is Map) {
+      final code = data['avatar']['code']?.toString() ?? '';
+      if (code.contains('max_size')) {
+        return 'Foto terlalu besar. Maksimal 5 MB — pilih foto yang lebih kecil.';
+      }
+      if (code.contains('mime') || code.contains('file_type')) {
+        return 'Format tidak didukung. Gunakan JPG, PNG, atau WebP.';
+      }
+    }
+
+    final status = e.statusCode;
+    if (status == 401 || status == 403) {
+      return 'Tidak punya izin upload. Silakan login ulang.';
+    }
+    if (status == 413) {
+      return 'Foto terlalu besar. Maksimal 5 MB.';
+    }
+
+    return 'Gagal mengunggah foto. Pastikan format JPG/PNG/WebP dan ukuran di bawah 5 MB.';
+  }
+
+  Future<UserModel> removeAvatar({required String userId}) async {
+    final record = await _pb.collection(AppConstants.colUsers).update(
+          userId,
+          body: {'avatar': ''},
+        );
+
+    return _recordToUser(record);
+  }
+
+  UserModel _recordToUser(RecordModel record) {
     return UserModel.fromJson({
       ...record.toJson(),
       ...record.data,
@@ -342,28 +442,21 @@ class AuthService {
   String _generateOtp() {
     final random = DateTime.now().millisecondsSinceEpoch % 1000000;
     final otp = random.toString().padLeft(6, '0');
-    // Display OTP in console for testing
-    _logger.i('🔐 Generated OTP: $otp (type: String, length: ${otp.length})');
-    _logger.i('\n⚠️  DEV MODE: OTP Code = $otp\n');
+    
+    // TAMPILKAN DI TERMINAL DENGAN SANGAT MENCOLOK
+    _logger.i('\n\n${'=' * 50}');
+    _logger.i('🔑  KODE OTP ANDA: $otp  🔑');
+    _logger.i('${'=' * 50}\n\n');
+    
+    _logger.i('🔐 Generated OTP: $otp');
     return otp;
   }
 
-  // Send OTP via PocketBase email template (opsional — OTP tetap tersimpan di DB)
+  // Send OTP (sepenuhnya ditangani di backend PocketBase JS Hook)
   Future<void> _sendOtpEmail({
     required String email,
     required String otp,
   }) async {
-    // OTP sudah tersimpan di field otp_code di database.
-    // Email dikirim hanya jika SMTP sudah dikonfigurasi di PocketBase.
-    // Jika belum ada SMTP, user tetap bisa dapat OTP dari DB.
-    _logger.w('📧 Sending OTP to: $email | OTP: $otp');
-    try {
-      // Coba kirim email notif via requestVerification (gunakan SMTP PocketBase)
-      await _pb.collection(AppConstants.colUsers).requestVerification(email);
-    } catch (_) {
-      // Gagal kirim email — tidak apa-apa, OTP tetap ada di DB
-      // User bisa minta resend atau admin bisa cek otp_code di PocketBase
-      _logger.e('⚠️  Email not sent (SMTP not configured)');
-    }
+    _logger.i('📧 Pengiriman email OTP [Email: $email, OTP: $otp] didelegasikan ke PocketBase backend JS Hook (Opsi B).');
   }
 }

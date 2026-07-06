@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:aura_app/utils/utils.dart';
-import 'package:aura_app/models/user_model.dart';
-import 'package:aura_app/models/task_model.dart';
-import 'package:aura_app/models/finance_model.dart';
+import 'package:aura_mobile/utils/utils.dart';
+import 'package:aura_mobile/models/user_model.dart';
+import 'package:aura_mobile/models/task_model.dart';
+import 'package:aura_mobile/models/finance_model.dart';
 
 // ─── STEP 19: Final Testing ────────────────────────────────────────────────
 

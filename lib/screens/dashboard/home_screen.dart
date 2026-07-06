@@ -7,7 +7,10 @@ import '../../core/constants/app_text_styles.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/task_provider.dart';
 import '../../providers/finance_provider.dart';
-
+import '../../providers/notification_provider.dart';
+import '../../widgets/common/user_avatar.dart';
+import '../../widgets/notification/notification_bell.dart';
+import '../../models/notification_model.dart';
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -18,22 +21,55 @@ class HomeScreen extends ConsumerWidget {
     return 'Selamat Malam';
   }
 
+  void _handleNotificationTap(BuildContext context, WidgetRef ref, NotificationModel notification) async {
+    if (!notification.isRead) {
+      await ref.read(notificationProvider.notifier).markAsRead(notification.id);
+    }
+    
+    if (!context.mounted) return;
+    final data = notification.data;
+    if (data != null && data['action'] != null) {
+      switch (data['action']) {
+        case 'view_task':
+          context.push(data['taskId'] != null ? '/tasks/edit/${data['taskId']}' : '/tasks');
+          break;
+        case 'view_finance':
+          context.push('/finance');
+          break;
+        case 'view_ai':
+          context.push('/ai');
+          break;
+        default:
+          context.push('/notifications');
+          break;
+      }
+    } else {
+      context.push('/notifications');
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final taskState = ref.watch(taskProvider);
     final financeState = ref.watch(financeProvider);
+    final notificationState = ref.watch(notificationProvider);
     final isPremium = ref.watch(isPremiumProvider);
+    final ts = AppTextStyles.of(context);
+
+    // Trigger sync from existing data once per session
+    ref.watch(notificationSyncProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.bgDark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: RefreshIndicator(
           color: AppColors.primary,
-          backgroundColor: AppColors.bgCard,
+          backgroundColor: Theme.of(context).cardColor,
           onRefresh: () async {
             ref.read(taskProvider.notifier).loadTasks();
             ref.read(financeProvider.notifier).loadFinances();
+            ref.read(notificationProvider.notifier).loadNotifications();
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -50,18 +86,22 @@ class HomeScreen extends ConsumerWidget {
                       children: [
                         Text(
                           '${_greeting()},',
-                          style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textSecondary,
+                          style: ts.bodyMedium.copyWith(
+                            color: AppColors.adaptiveTextSecondary(context),
                           ),
                         ),
                         Text(
                           user?.name.split(' ').first ?? 'Pengguna',
-                          style: AppTextStyles.headlineLarge,
+                          style: ts.headlineLarge,
                         ),
                       ],
                     ),
                     Row(
                       children: [
+                        // Notification Bell
+                        const NotificationBellAnimated(size: 26),
+                        const SizedBox(width: 12),
+                        
                         if (isPremium)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -76,25 +116,18 @@ class HomeScreen extends ConsumerWidget {
                                     color: Colors.white, size: 14),
                                 const SizedBox(width: 4),
                                 Text('Premium',
-                                    style: AppTextStyles.labelSmall.copyWith(
+                                    style: ts.labelSmall.copyWith(
                                         color: Colors.white)),
                               ],
                             ),
                           ),
                         const SizedBox(width: 8),
-                        GestureDetector(
+                        UserAvatar(
+                          user: user,
+                          radius: 20,
+                          showPremiumBadge: isPremium,
                           onTap: () => context.go('/profile'),
-                          child: CircleAvatar(
-                            radius: 20,
-                            backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                            child: Text(
-                              (user?.name.isNotEmpty == true)
-                                  ? user!.name[0].toUpperCase()
-                                  : 'U',
-                              style: AppTextStyles.headlineSmall.copyWith(
-                                  color: AppColors.primary),
-                            ),
-                          ),
+                          heroTag: user != null ? 'user-avatar-${user.id}' : null,
                         ),
                       ],
                     ),
@@ -147,7 +180,7 @@ class HomeScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
 
                 // Quick Actions
-                Text('Aksi Cepat', style: AppTextStyles.headlineSmall),
+                Text('Aksi Cepat', style: ts.headlineSmall),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -190,11 +223,37 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 24),
 
+                // Recent Notifications (only if there are unread notifications)
+                if (notificationState.unreadCount > 0) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Notifikasi Terbaru', style: ts.headlineSmall),
+                      TextButton(
+                        onPressed: () => context.push('/notifications'),
+                        child: Text(
+                          'Lihat Semua (${notificationState.unreadCount})',
+                          style: const TextStyle(color: AppColors.primary, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  ...notificationState.unreadNotifications.take(2).map((notification) {
+                    return _NotificationTile(
+                      notification: notification,
+                      onTap: () => _handleNotificationTap(context, ref, notification),
+                    );
+                  }),
+                  const SizedBox(height: 24),
+                ],
+
                 // Today's Tasks
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Tugas Hari Ini', style: AppTextStyles.headlineSmall),
+                    Text('Tugas Hari Ini', style: ts.headlineSmall),
                     TextButton(
                       onPressed: () => context.go('/tasks'),
                       child: const Text('Lihat Semua',
@@ -233,7 +292,7 @@ class HomeScreen extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Transaksi Terbaru', style: AppTextStyles.headlineSmall),
+                    Text('Transaksi Terbaru', style: ts.headlineSmall),
                     TextButton(
                       onPressed: () => context.go('/finance'),
                       child: const Text('Lihat Semua',
@@ -288,6 +347,7 @@ class _BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     final fmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final month = DateFormat('MMMM yyyy', 'id_ID').format(DateTime.now());
 
@@ -312,13 +372,13 @@ class _BalanceCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Saldo Bulan Ini',
-              style: AppTextStyles.bodySmall.copyWith(color: Colors.white70)),
+              style: ts.bodySmall.copyWith(color: Colors.white70)),
           Text(month,
-              style: AppTextStyles.labelSmall.copyWith(color: Colors.white54)),
+              style: ts.labelSmall.copyWith(color: Colors.white54)),
           const SizedBox(height: 8),
           Text(
             fmt.format(balance),
-            style: AppTextStyles.amount.copyWith(color: Colors.white),
+            style: ts.amount.copyWith(color: Colors.white),
           ),
           const SizedBox(height: 16),
           Row(
@@ -362,6 +422,7 @@ class _BalanceItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     return Row(
       children: [
         Container(
@@ -377,9 +438,9 @@ class _BalanceItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: AppTextStyles.caption.copyWith(color: Colors.white70)),
+                style: ts.caption.copyWith(color: Colors.white70)),
             Text(value,
-                style: AppTextStyles.labelMedium.copyWith(
+                style: ts.labelMedium.copyWith(
                     color: Colors.white, fontWeight: FontWeight.w600)),
           ],
         ),
@@ -405,23 +466,24 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.bgCard,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Column(
           children: [
             Icon(icon, color: color, size: 22),
             const SizedBox(height: 6),
             Text(value,
-                style: AppTextStyles.headlineMedium.copyWith(color: color)),
+                style: ts.headlineMedium.copyWith(color: color)),
             Text(label,
-                style: AppTextStyles.caption,
+                style: ts.caption,
                 textAlign: TextAlign.center),
           ],
         ),
@@ -445,6 +507,7 @@ class _QuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -461,7 +524,7 @@ class _QuickAction extends StatelessWidget {
             Text(
               label,
               textAlign: TextAlign.center,
-              style: AppTextStyles.caption.copyWith(color: color, fontSize: 10),
+              style: ts.caption.copyWith(color: color, fontSize: 10),
             ),
           ],
         ),
@@ -493,15 +556,16 @@ class _TaskTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppColors.bgCard,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           children: [
@@ -515,7 +579,7 @@ class _TaskTile extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(title, style: AppTextStyles.bodyMedium),
+              child: Text(title, style: ts.bodyMedium),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -555,6 +619,7 @@ class _FinanceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     final fmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final color = isIncome ? AppColors.success : AppColors.error;
     return GestureDetector(
@@ -563,9 +628,9 @@ class _FinanceTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: AppColors.bgCard,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           children: [
@@ -586,17 +651,17 @@ class _FinanceTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(category, style: AppTextStyles.bodyMedium),
+                  Text(category, style: ts.bodyMedium),
                   Text(
                     DateFormat('dd MMM yyyy', 'id_ID').format(date),
-                    style: AppTextStyles.caption,
+                    style: ts.caption,
                   ),
                 ],
               ),
             ),
             Text(
               '${isIncome ? '+' : '-'}${fmt.format(amount)}',
-              style: AppTextStyles.labelLarge.copyWith(color: color),
+              style: ts.labelLarge.copyWith(color: color),
             ),
           ],
         ),
@@ -618,19 +683,20 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         children: [
-          Icon(icon, color: AppColors.textMuted, size: 36),
+          Icon(icon, color: AppColors.adaptiveTextMuted(context), size: 36),
           const SizedBox(height: 8),
-          Text(message, style: AppTextStyles.bodyMedium),
-          Text(sub, style: AppTextStyles.caption),
+          Text(message, style: ts.bodyMedium),
+          Text(sub, style: ts.caption),
         ],
       ),
     );
@@ -643,6 +709,7 @@ class _PremiumBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -669,14 +736,130 @@ class _PremiumBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Upgrade ke Premium',
-                      style: AppTextStyles.headlineSmall.copyWith(color: Colors.white)),
+                      style: ts.headlineSmall.copyWith(color: Colors.white)),
                   Text('Dapatkan AI tanpa batas & fitur lengkap',
-                      style: AppTextStyles.caption.copyWith(color: Colors.white70)),
+                      style: ts.caption.copyWith(color: Colors.white70)),
                 ],
               ),
             ),
             const Icon(Icons.arrow_forward_ios_rounded,
                 color: Colors.white, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationTile extends StatelessWidget {
+  final NotificationModel notification;
+  final VoidCallback onTap;
+
+  const _NotificationTile({
+    required this.notification,
+    required this.onTap,
+  });
+
+  Color get _typeColor {
+    switch (notification.type) {
+      case NotificationType.taskDeadline:
+      case NotificationType.taskOverdue:
+        return Colors.orange;
+      case NotificationType.taskCompleted:
+        return Colors.green;
+      case NotificationType.budgetAlert:
+        return Colors.red;
+      case NotificationType.expenseReminder:
+        return Colors.amber;
+      case NotificationType.monthlySummary:
+        return Colors.blue;
+      case NotificationType.aiSuggestion:
+        return AppColors.primary;
+      case NotificationType.general:
+        return Colors.grey;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Theme.of(context).dividerColor),
+          boxShadow: [
+            BoxShadow(
+              color: _typeColor.withValues(alpha: 0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: _typeColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Center(
+                child: Text(
+                  notification.type.icon,
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    notification.title,
+                    style: ts.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    notification.message,
+                    style: ts.caption.copyWith(
+                      color: AppColors.adaptiveTextSecondary(context),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              children: [
+                Text(
+                  notification.timeAgo,
+                  style: ts.caption.copyWith(
+                    color: AppColors.adaptiveTextMuted(context),
+                    fontSize: 10,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

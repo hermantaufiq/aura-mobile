@@ -61,19 +61,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
+        backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
             const Icon(Icons.lock_outline, color: AppColors.gold, size: 22),
             const SizedBox(width: 8),
-            Text('Batas Tercapai', style: AppTextStyles.headlineSmall),
+            Text('Batas Tercapai', style: AppTextStyles.of(context).headlineSmall),
           ],
         ),
         content: Text(
           'Kamu sudah menggunakan 5 pesan AI hari ini.\nUpgrade ke Premium untuk chat tanpa batas!',
-          style: AppTextStyles.bodyMedium
-              .copyWith(color: AppColors.textSecondary),
+          style: AppTextStyles.of(context).bodyMedium,
         ),
         actions: [
           TextButton(
@@ -103,7 +102,7 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final remaining = authNotifier.remainingAiCount;
 
     return Scaffold(
-      backgroundColor: AppColors.bgDark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Row(
           children: [
@@ -120,11 +119,11 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('AURA AI', style: AppTextStyles.headlineSmall),
+                Text('AURA AI', style: AppTextStyles.of(context).headlineSmall),
                 Text(
                   isPremium ? 'Premium • Unlimited' : 'Free • $remaining pesan tersisa',
-                  style: AppTextStyles.caption.copyWith(
-                    color: isPremium ? AppColors.gold : AppColors.textMuted,
+                  style: AppTextStyles.of(context).caption.copyWith(
+                    color: isPremium ? AppColors.gold : null,
                   ),
                 ),
               ],
@@ -138,7 +137,8 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             onPressed: () => context.go('/ai/insight'),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppColors.textMuted),
+            icon: Icon(Icons.delete_outline,
+                color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.6)),
             tooltip: 'Hapus riwayat',
             onPressed: () {
               ref.read(aiChatProvider.notifier).clearMessages();
@@ -164,9 +164,9 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
           // Input Area
           Container(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            decoration: const BoxDecoration(
-              color: AppColors.bgCard,
-              border: Border(top: BorderSide(color: AppColors.border)),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
             ),
             child: SafeArea(
               child: Row(
@@ -174,24 +174,23 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: AppColors.bgSurface,
+                        color: Theme.of(context).inputDecorationTheme.fillColor,
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: Theme.of(context).dividerColor),
                       ),
                       child: Row(
                         children: [
                           Expanded(
                             child: TextField(
                               controller: _msgCtrl,
-                              style: AppTextStyles.bodyMedium,
+                              style: AppTextStyles.of(context).bodyMedium,
                               maxLines: 4,
                               minLines: 1,
                               textInputAction: TextInputAction.send,
                               onSubmitted: (_) => _send(),
                               decoration: InputDecoration(
                                 hintText: 'Tanya AURA...',
-                                hintStyle: AppTextStyles.bodyMedium.copyWith(
-                                    color: AppColors.textHint),
+                                hintStyle: AppTextStyles.of(context).hint,
                                 border: InputBorder.none,
                                 enabledBorder: InputBorder.none,
                                 focusedBorder: InputBorder.none,
@@ -264,16 +263,16 @@ class _ChatBubble extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 12, right: 60),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: AppColors.bgCard,
+            color: Theme.of(context).cardColor,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(4),
               topRight: Radius.circular(18),
               bottomLeft: Radius.circular(18),
               bottomRight: Radius.circular(18),
             ),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
-          child: Row(
+          child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               _DotAnimation(),
@@ -295,14 +294,14 @@ class _ChatBubble extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           gradient: isUser ? AppColors.primaryGradient : null,
-          color: isUser ? null : AppColors.bgCard,
+          color: isUser ? null : Theme.of(context).cardColor,
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(isUser ? 18 : 4),
             topRight: Radius.circular(isUser ? 4 : 18),
             bottomLeft: const Radius.circular(18),
             bottomRight: const Radius.circular(18),
           ),
-          border: isUser ? null : Border.all(color: AppColors.border),
+          border: isUser ? null : Border.all(color: Theme.of(context).dividerColor),
           boxShadow: isUser
               ? [
                   BoxShadow(
@@ -327,15 +326,17 @@ class _ChatBubble extends StatelessWidget {
                         color: AppColors.primary, size: 12),
                     const SizedBox(width: 4),
                     Text('AURA',
-                        style: AppTextStyles.labelSmall.copyWith(
+                        style: AppTextStyles.of(context).labelSmall.copyWith(
                             color: AppColors.primary)),
                   ],
                 ),
               ),
             Text(
               message.content,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: isUser ? Colors.white : AppColors.textPrimary,
+              style: AppTextStyles.of(context).bodyMedium.copyWith(
+                color: isUser
+                    ? Colors.white
+                    : Theme.of(context).colorScheme.onSurface,
                 height: 1.5,
               ),
             ),
@@ -347,6 +348,8 @@ class _ChatBubble extends StatelessWidget {
 }
 
 class _DotAnimation extends StatefulWidget {
+  const _DotAnimation();
+  
   @override
   State<_DotAnimation> createState() => _DotAnimationState();
 }
@@ -374,7 +377,7 @@ class _DotAnimationState extends State<_DotAnimation>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _ctrl,
-      builder: (_, __) {
+      builder: (ctx, __) {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: List.generate(3, (i) {

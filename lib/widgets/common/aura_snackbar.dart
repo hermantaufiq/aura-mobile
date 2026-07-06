@@ -35,23 +35,31 @@ class AuraSnackbar {
     );
   }
 
-  static void success(BuildContext context, String message) {
+  static void success(BuildContext context, String message, {Duration? duration}) {
     show(context, message,
-        color: AppColors.success, icon: Icons.check_circle_outline);
+        color: AppColors.success, 
+        icon: Icons.check_circle_outline,
+        duration: duration ?? const Duration(seconds: 3));
   }
 
-  static void error(BuildContext context, String message) {
+  static void error(BuildContext context, String message, {Duration? duration}) {
     show(context, message,
-        color: AppColors.error, icon: Icons.error_outline);
+        color: AppColors.error, 
+        icon: Icons.error_outline,
+        duration: duration ?? const Duration(seconds: 3));
   }
 
-  static void info(BuildContext context, String message) {
+  static void info(BuildContext context, String message, {Duration? duration}) {
     show(context, message,
-        color: AppColors.info, icon: Icons.info_outline);
+        color: AppColors.info, 
+        icon: Icons.info_outline,
+        duration: duration ?? const Duration(seconds: 3));
   }
 
-  static void warning(BuildContext context, String message) {
+  static void warning(BuildContext context, String message, {Duration? duration}) {
     show(context, message,
-        color: AppColors.warning, icon: Icons.warning_amber_outlined);
+        color: AppColors.warning, 
+        icon: Icons.warning_amber_outlined,
+        duration: duration ?? const Duration(seconds: 3));
   }
 }

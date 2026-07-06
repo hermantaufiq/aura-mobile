@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/navigation_utils.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../providers/finance_provider.dart';
@@ -65,9 +65,9 @@ class _FinanceFormScreenState extends ConsumerState<FinanceFormScreen> {
       lastDate: DateTime.now(),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
+          colorScheme: ColorScheme.dark(
             primary: AppColors.primary,
-            surface: AppColors.bgCard,
+            surface: Theme.of(context).cardColor,
           ),
         ),
         child: child!,
@@ -107,7 +107,7 @@ class _FinanceFormScreenState extends ConsumerState<FinanceFormScreen> {
     if (ok) {
       AuraSnackbar.success(
           context, _isEdit ? 'Transaksi diperbarui' : 'Transaksi ditambahkan');
-      context.pop();
+      safePop(context, fallback: '/finance');
     } else {
       AuraSnackbar.error(context, 'Gagal menyimpan transaksi');
     }
@@ -115,16 +115,17 @@ class _FinanceFormScreenState extends ConsumerState<FinanceFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     final fmt = DateFormat('EEEE, dd MMM yyyy', 'id_ID');
 
     return Scaffold(
-      backgroundColor: AppColors.bgDark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit Transaksi' : 'Tambah Transaksi',
-            style: AppTextStyles.headlineMedium),
+            style: ts.headlineMedium),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
-          onPressed: () => context.pop(),
+          onPressed: () => safePop(context, fallback: '/finance'),
         ),
       ),
       body: SingleChildScrollView(
@@ -137,9 +138,9 @@ class _FinanceFormScreenState extends ConsumerState<FinanceFormScreen> {
               // Type Toggle
               Container(
                 decoration: BoxDecoration(
-                  color: AppColors.bgCard,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Row(
                   children: [
@@ -177,19 +178,19 @@ class _FinanceFormScreenState extends ConsumerState<FinanceFormScreen> {
               const SizedBox(height: 20),
 
               // Amount
-              Text('Jumlah', style: AppTextStyles.labelLarge),
+              Text('Jumlah', style: ts.labelLarge),
               const SizedBox(height: 8),
               TextFormField(
                 controller: _amountCtrl,
                 keyboardType: TextInputType.number,
-                style: AppTextStyles.amountSmall,
+                style: ts.amountSmall,
                 decoration: InputDecoration(
                   prefixText: 'Rp ',
-                  prefixStyle: AppTextStyles.amountSmall.copyWith(
-                      color: AppColors.textMuted),
+                  prefixStyle: ts.amountSmall.copyWith(
+                      color: AppColors.adaptiveTextMuted(context)),
                   hintText: '0',
-                  hintStyle: AppTextStyles.amountSmall.copyWith(
-                      color: AppColors.textHint),
+                  hintStyle: ts.amountSmall.copyWith(
+                      color: AppColors.adaptiveTextHint(context)),
                 ),
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'Jumlah wajib diisi';
@@ -201,7 +202,7 @@ class _FinanceFormScreenState extends ConsumerState<FinanceFormScreen> {
               const SizedBox(height: 20),
 
               // Category
-              Text('Kategori', style: AppTextStyles.labelLarge),
+              Text('Kategori', style: ts.labelLarge),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -217,10 +218,10 @@ class _FinanceFormScreenState extends ConsumerState<FinanceFormScreen> {
                       decoration: BoxDecoration(
                         color: selected
                             ? AppColors.primary.withValues(alpha: 0.2)
-                            : AppColors.bgSurface,
+                            : Theme.of(context).inputDecorationTheme.fillColor ?? Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: selected ? AppColors.primary : AppColors.border,
+                          color: selected ? AppColors.primary : Theme.of(context).dividerColor,
                           width: selected ? 1.5 : 1,
                         ),
                       ),
@@ -229,7 +230,7 @@ class _FinanceFormScreenState extends ConsumerState<FinanceFormScreen> {
                         style: TextStyle(
                           color: selected
                               ? AppColors.primary
-                              : AppColors.textSecondary,
+                              : AppColors.adaptiveTextSecondary(context),
                           fontSize: 13,
                           fontWeight: selected
                               ? FontWeight.w600
@@ -243,24 +244,24 @@ class _FinanceFormScreenState extends ConsumerState<FinanceFormScreen> {
               const SizedBox(height: 20),
 
               // Date
-              Text('Tanggal', style: AppTextStyles.labelLarge),
+              Text('Tanggal', style: ts.labelLarge),
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: _pickDate,
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.bgSurface,
+                    color: Theme.of(context).inputDecorationTheme.fillColor ?? Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.calendar_today_outlined,
-                          color: AppColors.textMuted, size: 20),
+                      Icon(Icons.calendar_today_outlined,
+                          color: AppColors.adaptiveTextMuted(context), size: 20),
                       const SizedBox(width: 12),
                       Text(fmt.format(_date),
-                          style: AppTextStyles.bodyMedium),
+                          style: ts.bodyMedium),
                     ],
                   ),
                 ),
@@ -270,7 +271,7 @@ class _FinanceFormScreenState extends ConsumerState<FinanceFormScreen> {
               // Note
               TextFormField(
                 controller: _noteCtrl,
-                style: AppTextStyles.bodyMedium,
+                style: ts.bodyMedium,
                 maxLines: 2,
                 decoration: const InputDecoration(
                   labelText: 'Catatan (opsional)',
@@ -325,12 +326,12 @@ class _TypeButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: selected ? color : AppColors.textMuted, size: 18),
+            Icon(icon, color: selected ? color : AppColors.adaptiveTextMuted(context), size: 18),
             const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
-                color: selected ? color : AppColors.textMuted,
+                color: selected ? color : AppColors.adaptiveTextMuted(context),
                 fontSize: 14,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
               ),

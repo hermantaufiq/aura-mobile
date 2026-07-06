@@ -14,9 +14,12 @@ import '../screens/finance/finance_screen.dart';
 import '../screens/finance/finance_form_screen.dart';
 import '../screens/ai/ai_chat_screen.dart';
 import '../screens/ai/ai_insight_screen.dart';
+import '../screens/notifications/notifications_screen.dart';
 import '../screens/premium/premium_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/edit_profile_screen.dart';
+import '../screens/admin/admin_login_screen.dart';
+import '../screens/admin/admin_dashboard_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -36,11 +39,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = authState.isLoggedIn;
       final isOnSplash = state.matchedLocation == '/splash';
       final isOnAuth = state.matchedLocation.startsWith('/auth');
+      final isOnAdminAuth = state.matchedLocation == '/admin/login';
+      final isOnAdminApp = state.matchedLocation.startsWith('/admin') && !isOnAdminAuth;
+      final role = authState.user?.role;
 
       if (isOnSplash) return null;
-      if (!isLoggedIn && !isOnAuth) return '/auth/login';
-      if (isLoggedIn && isOnAuth) return '/home';
-      return null;
+      if (authState.isLoading) return null;
+
+      // Handle unauthenticated users
+      if (!isLoggedIn) {
+        if (isOnAdminAuth) return null;
+        if (isOnAdminApp) return '/admin/login';
+        if (!isOnAuth) return '/auth/login';
+        return null;
+      }
+
+      // Handle authenticated users
+      if (role == 'admin') {
+        if (isOnAuth || isOnAdminAuth) return '/admin/dashboard';
+        if (!isOnAdminApp) return '/admin/dashboard';
+        return null;
+      } else {
+        if (isOnAdminAuth || isOnAdminApp) return '/auth/login';
+        if (isOnAuth) return '/home';
+        return null;
+      }
     },
     routes: [
       // Splash
@@ -65,6 +88,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/auth/otp',
         name: 'otp',
         builder: (context, state) => const OtpScreen(),
+      ),
+
+      // Admin Routes
+      GoRoute(
+        path: '/admin/login',
+        name: 'admin-login',
+        builder: (context, state) => const AdminLoginScreen(),
+      ),
+      GoRoute(
+        path: '/admin/dashboard',
+        name: 'admin-dashboard',
+        builder: (context, state) => const AdminDashboardScreen(),
       ),
 
       // Main Shell with Bottom Navigation
@@ -157,6 +192,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/premium',
         name: 'premium',
         builder: (context, state) => const PremiumScreen(),
+      ),
+
+      // Notifications (outside shell)
+      GoRoute(
+        path: '/notifications',
+        name: 'notifications',
+        builder: (context, state) => const NotificationsScreen(),
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

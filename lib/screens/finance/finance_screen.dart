@@ -36,13 +36,14 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(financeProvider);
+    final ts = AppTextStyles.of(context);
     final fmt = NumberFormat.currency(
         locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
     return Scaffold(
-      backgroundColor: AppColors.bgDark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Keuangan', style: AppTextStyles.headlineMedium),
+        title: Text('Keuangan', style: ts.headlineMedium),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -106,9 +107,9 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.bgCard,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: TabBar(
               controller: _tabController,
@@ -196,14 +197,14 @@ class _MonthSelector extends StatelessWidget {
         children: [
           IconButton(
             onPressed: prev,
-            icon: const Icon(Icons.chevron_left_rounded,
-                color: AppColors.textPrimary),
+            icon: Icon(Icons.chevron_left_rounded,
+                color: AppColors.adaptiveTextPrimary(context)),
           ),
-          Text(label, style: AppTextStyles.headlineSmall),
+          Text(label, style: AppTextStyles.of(context).headlineSmall),
           IconButton(
             onPressed: next,
-            icon: const Icon(Icons.chevron_right_rounded,
-                color: AppColors.textPrimary),
+            icon: Icon(Icons.chevron_right_rounded,
+                color: AppColors.adaptiveTextPrimary(context)),
           ),
         ],
       ),
@@ -229,9 +230,9 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,7 +242,7 @@ class _SummaryCard extends StatelessWidget {
               Icon(icon, color: color, size: 14),
               const SizedBox(width: 4),
               Text(label,
-                  style: AppTextStyles.caption.copyWith(color: color)),
+                  style: AppTextStyles.of(context).caption.copyWith(color: color)),
             ],
           ),
           const SizedBox(height: 4),
@@ -272,6 +273,7 @@ class _TransactionList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final ts = AppTextStyles.of(context);
     if (isLoading) {
       return const Center(
           child: CircularProgressIndicator(color: AppColors.primary));
@@ -281,13 +283,13 @@ class _TransactionList extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.account_balance_wallet_outlined,
-                color: AppColors.textMuted, size: 56),
+            Icon(Icons.account_balance_wallet_outlined,
+                color: AppColors.adaptiveTextMuted(context), size: 56),
             const SizedBox(height: 16),
-            Text('Belum ada transaksi', style: AppTextStyles.headlineSmall),
+            Text('Belum ada transaksi', style: ts.headlineSmall),
             const SizedBox(height: 8),
             Text('Tambah transaksi pertama Anda',
-                style: AppTextStyles.bodySmall),
+                style: ts.bodySmall),
           ],
         ),
       );
@@ -298,7 +300,7 @@ class _TransactionList extends ConsumerWidget {
 
     return RefreshIndicator(
       color: AppColors.primary,
-      backgroundColor: AppColors.bgCard,
+      backgroundColor: Theme.of(context).cardColor,
       onRefresh: () => ref.read(financeProvider.notifier).loadFinances(),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
@@ -309,9 +311,9 @@ class _TransactionList extends ConsumerWidget {
           return Container(
             margin: const EdgeInsets.only(bottom: 8),
             decoration: BoxDecoration(
-              color: AppColors.bgCard,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: ListTile(
               contentPadding:
@@ -330,12 +332,12 @@ class _TransactionList extends ConsumerWidget {
                   size: 20,
                 ),
               ),
-              title: Text(f.category, style: AppTextStyles.labelLarge),
+              title: Text(f.category, style: ts.labelLarge),
               subtitle: Text(
                 f.note.isNotEmpty
                     ? '${f.note} • ${DateFormat('dd MMM', 'id_ID').format(f.date)}'
                     : DateFormat('dd MMM yyyy', 'id_ID').format(f.date),
-                style: AppTextStyles.caption,
+                style: ts.caption,
               ),
               trailing: Text(
                 '${f.isIncome ? '+' : '-'}${fmt.format(f.amount)}',
@@ -380,7 +382,7 @@ class _TransactionList extends ConsumerWidget {
   }
 }
 
-// ─── STEP 11: Finance Charts (Premium Only) ──────────────────────────────────
+// ─── Finance Charts (Premium Only) ──────────────────────────────────────────
 
 class _FinanceCharts extends ConsumerWidget {
   final List<FinanceModel> expenseList;
@@ -396,6 +398,7 @@ class _FinanceCharts extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isPremium = ref.watch(isPremiumProvider);
+    final ts = AppTextStyles.of(context);
 
     if (!isPremium) {
       return const _PremiumLockOverlay();
@@ -412,14 +415,14 @@ class _FinanceCharts extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.bar_chart_rounded,
-                color: AppColors.textMuted, size: 56),
+            Icon(Icons.bar_chart_rounded,
+                color: AppColors.adaptiveTextMuted(context), size: 56),
             const SizedBox(height: 16),
             Text('Belum ada data untuk ditampilkan',
-                style: AppTextStyles.headlineSmall),
+                style: ts.headlineSmall),
             const SizedBox(height: 8),
             Text('Tambah transaksi terlebih dahulu',
-                style: AppTextStyles.bodySmall),
+                style: ts.bodySmall),
           ],
         ),
       );
@@ -431,24 +434,25 @@ class _FinanceCharts extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Income vs Expense Bar
-          _buildIncomeExpenseBar(totalIncome, totalExpense),
+          _buildIncomeExpenseBar(context, totalIncome, totalExpense),
           const SizedBox(height: 24),
 
           // Pie Chart
           if (byCategory.isNotEmpty) ...[
             Text('Pengeluaran per Kategori',
-                style: AppTextStyles.headlineSmall),
+                style: ts.headlineSmall),
             const SizedBox(height: 16),
             _buildPieChart(byCategory),
             const SizedBox(height: 16),
-            _buildLegend(byCategory),
+            _buildLegend(context, byCategory),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildIncomeExpenseBar(double income, double expense) {
+  Widget _buildIncomeExpenseBar(BuildContext context, double income, double expense) {
+    final ts = AppTextStyles.of(context);
     final fmt =
         NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final total = income + expense;
@@ -457,15 +461,15 @@ class _FinanceCharts extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('Pemasukan vs Pengeluaran',
-              style: AppTextStyles.labelLarge),
+              style: ts.labelLarge),
           const SizedBox(height: 16),
           // Stacked bar
           ClipRRect(
@@ -555,7 +559,8 @@ class _FinanceCharts extends ConsumerWidget {
     );
   }
 
-  Widget _buildLegend(Map<String, double> byCategory) {
+  Widget _buildLegend(BuildContext context, Map<String, double> byCategory) {
+    final ts = AppTextStyles.of(context);
     final colors = [
       AppColors.primary, AppColors.secondary, AppColors.gold,
       AppColors.error, AppColors.success, AppColors.info,
@@ -568,9 +573,9 @@ class _FinanceCharts extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         children: List.generate(entries.length, (i) {
@@ -588,10 +593,10 @@ class _FinanceCharts extends ConsumerWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(entries[i].key,
-                      style: AppTextStyles.bodyMedium),
+                      style: ts.bodyMedium),
                 ),
                 Text(fmt.format(entries[i].value),
-                    style: AppTextStyles.labelMedium.copyWith(
+                    style: ts.labelMedium.copyWith(
                         color: AppColors.expense)),
               ],
             ),
@@ -616,7 +621,7 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(label, style: AppTextStyles.caption),
+        Text(label, style: AppTextStyles.of(context).caption),
       ],
     );
   }
@@ -627,6 +632,7 @@ class _PremiumLockOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -646,12 +652,12 @@ class _PremiumLockOverlay extends StatelessWidget {
             child: const Icon(Icons.lock_rounded, color: Colors.white, size: 36),
           ),
           const SizedBox(height: 20),
-          Text('Fitur Premium', style: AppTextStyles.headlineMedium),
+          Text('Fitur Premium', style: ts.headlineMedium),
           const SizedBox(height: 8),
           Text(
             'Grafik analisis keuangan tersedia\nuntuk pengguna Premium.',
             textAlign: TextAlign.center,
-            style: AppTextStyles.bodySmall,
+            style: ts.bodySmall,
           ),
           const SizedBox(height: 24),
           GestureDetector(

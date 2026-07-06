@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/finance_model.dart';
 import '../services/finance_service.dart';
+import '../core/constants/app_constants.dart';
 import 'auth_provider.dart';
 
 // Finance State
@@ -66,6 +67,31 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
     loadFinances();
   }
 
+  /// Validates amount and category
+  bool _validateInput({
+    required double amount,
+    required String type,
+    required String category,
+  }) {
+    // Validate amount
+    if (amount <= 0) {
+      state = state.copyWith(error: 'Jumlah harus lebih besar dari 0');
+      return false;
+    }
+
+    // Validate category based on type
+    final validCategories = type == 'income'
+        ? AppConstants.incomeCategories
+        : AppConstants.expenseCategories;
+
+    if (!validCategories.contains(category)) {
+      state = state.copyWith(error: 'Kategori tidak valid');
+      return false;
+    }
+
+    return true;
+  }
+
   Future<void> loadFinances({int? month, int? year}) async {
     final m = month ?? state.selectedMonth;
     final y = year ?? state.selectedYear;
@@ -88,6 +114,7 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
         }
       }
 
+      if (!mounted) return;
       state = state.copyWith(
         finances: finances,
         isLoading: false,
@@ -98,15 +125,36 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
         balance: totalIncome - totalExpense,
       );
     } catch (e) {
+      final errorMessage = _parseErrorMessage(e);
+      if (!mounted) return;
       state = state.copyWith(
         isLoading: false,
-        error: 'Gagal memuat data keuangan.',
+        error: errorMessage,
       );
     }
   }
 
   void changeMonth(int month, int year) {
     loadFinances(month: month, year: year);
+  }
+
+  // ── Private error handler ───────────────────────────────────────────────
+  String _parseErrorMessage(dynamic error) {
+    final errorStr = error.toString();
+
+    if (errorStr.contains('403')) {
+      return 'Anda tidak memiliki akses. Silakan login ulang.';
+    } else if (errorStr.contains('409')) {
+      return 'Data sudah diubah oleh pengguna lain. Silakan refresh.';
+    } else if (errorStr.contains('500')) {
+      return 'Server error. Coba lagi nanti.';
+    } else if (errorStr.contains('401')) {
+      return 'Sesi Anda telah berakhir. Silakan login kembali.';
+    } else if (errorStr.contains('404')) {
+      return 'Data tidak ditemukan.';
+    }
+
+    return 'Gagal memproses permintaan.';
   }
 
   Future<bool> createFinance({
@@ -116,6 +164,15 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
     String note = '',
     DateTime? date,
   }) async {
+    // Validate input
+    if (!_validateInput(
+      amount: amount,
+      type: type,
+      category: category,
+    )) {
+      return false;
+    }
+
     try {
       final finance = await _financeService.createFinance(
         userId: userId,
@@ -137,6 +194,7 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
         final totalExpense = type == 'expense'
             ? state.totalExpense + amount
             : state.totalExpense;
+        if (!mounted) return false;
         state = state.copyWith(
           finances: updated,
           totalIncome: totalIncome,
@@ -146,7 +204,9 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
       }
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal menambah transaksi.');
+      final errorMessage = _parseErrorMessage(e);
+      if (!mounted) return false;
+      state = state.copyWith(error: errorMessage);
       return false;
     }
   }
@@ -159,6 +219,37 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
     String? note,
     DateTime? date,
   }) async {
+    // Validate input if provided
+    if (amount != null && amount <= 0) {
+      state = state.copyWith(error: 'Jumlah harus lebih besar dari 0');
+      return false;
+    }
+
+    // Get the current finance to validate category against correct type
+    final currentFinance = state.finances
+        .cast<FinanceModel?>()
+        .firstWhere(
+          (f) => f?.id == financeId,
+          orElse: () => null,
+        );
+
+    if (currentFinance == null) {
+      state = state.copyWith(error: 'Transaksi tidak ditemukan');
+      return false;
+    }
+
+    final financeType = type ?? currentFinance.type;
+    if (category != null) {
+      final validCategories = financeType == 'income'
+          ? AppConstants.incomeCategories
+          : AppConstants.expenseCategories;
+
+      if (!validCategories.contains(category)) {
+        state = state.copyWith(error: 'Kategori tidak valid');
+        return false;
+      }
+    }
+
     try {
       final updated = await _financeService.updateFinance(
         financeId: financeId,
@@ -183,6 +274,7 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
         }
       }
 
+      if (!mounted) return false;
       state = state.copyWith(
         finances: finances,
         totalIncome: totalIncome,
@@ -191,7 +283,9 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
       );
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal mengupdate transaksi.');
+      final errorMessage = _parseErrorMessage(e);
+      if (!mounted) return false;
+      state = state.copyWith(error: errorMessage);
       return false;
     }
   }
@@ -211,6 +305,7 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
         }
       }
 
+      if (!mounted) return false;
       state = state.copyWith(
         finances: finances,
         totalIncome: totalIncome,
@@ -219,7 +314,9 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
       );
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal menghapus transaksi.');
+      final errorMessage = _parseErrorMessage(e);
+      if (!mounted) return false;
+      state = state.copyWith(error: errorMessage);
       return false;
     }
   }

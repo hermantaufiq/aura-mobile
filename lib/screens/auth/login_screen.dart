@@ -70,11 +70,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF0A0A0F), Color(0xFF12001F), Color(0xFF0A0A0F)],
+            colors: Theme.of(context).brightness == Brightness.dark
+              ? const [Color(0xFF0A0A0F), Color(0xFF12001F), Color(0xFF0A0A0F)]
+              : const [Color(0xFFF5F5F7), Color(0xFFFFFFFF), Color(0xFFF5F5F7)],
           ),
         ),
         child: SafeArea(
@@ -116,13 +118,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             ),
                           ),
                           const SizedBox(height: 20),
-                          Text('Selamat Datang!', style: AppTextStyles.displaySmall),
+                          Text('Selamat Datang!',
+                              style: AppTextStyles.of(context).displaySmall),
                           const SizedBox(height: 6),
                           Text(
                             'Masuk ke AURA untuk melanjutkan',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
+                            style: AppTextStyles.of(context).bodyMedium,
                           ),
                         ],
                       ),
@@ -190,7 +191,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             onTap: () => context.go('/auth/register'),
                             child: Text(
                               'Daftar di sini',
-                              style: AppTextStyles.bodyMedium.copyWith(
+                              style: AppTextStyles.of(context).bodyMedium.copyWith(
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w600,
                               ),

@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/notification_model.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../services/pocketbase_service.dart';
+
 
 // Auth State
 class AuthState {
@@ -35,27 +40,72 @@ class AuthState {
 // Auth Notifier
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
+  final Completer<void> _initCompleter = Completer<void>();
 
-  AuthNotifier(this._authService) : super(const AuthState()) {
+  AuthNotifier(this._authService) : super(const AuthState(isLoading: true)) {
     _init();
   }
 
+  Future<void> waitForInit() => _initCompleter.future;
+
   Future<void> _init() async {
-    state = state.copyWith(isLoading: true);
     try {
-      if (PocketBaseService.instance.isAuthenticated) {
-        final user = await _authService.getCurrentUser();
+      final pb = PocketBaseService.instance;
+      final cached = await pb.loadCachedUser();
+      final hasSession = await pb.hasActiveSession();
+
+      // Fast path: sesi + cache tersimpan (web reload)
+      if (hasSession && cached != null && pb.hasAuthToken) {
+        state = AuthState(user: cached, isLoggedIn: true);
+        
+        _syncSessionInBackground();
+        return;
+      }
+
+      if (pb.isAuthenticated) {
+        if (cached != null) {
+          state = AuthState(user: cached, isLoggedIn: true);
+          await pb.markSessionActive();
+          
+          _syncSessionInBackground();
+          return;
+        }
+
+        final user = await _authService.syncUserFromServer();
         if (user != null) {
-          // Check and reset AI count if new day
           await _authService.resetAiCountIfNeeded(user: user);
+          await pb.markSessionActive();
           state = AuthState(user: user, isLoggedIn: true);
+          
           return;
         }
       }
+
       state = const AuthState(isLoggedIn: false);
-    } catch (e) {
-      state = const AuthState(isLoggedIn: false);
+    } catch (_) {
+      final pb = PocketBaseService.instance;
+      final cached = await pb.loadCachedUser();
+      final hasSession = await pb.hasActiveSession();
+      if (hasSession && cached != null && pb.hasAuthToken) {
+        state = AuthState(user: cached, isLoggedIn: true);
+      } else {
+        state = const AuthState(isLoggedIn: false);
+      }
+    } finally {
+      if (!_initCompleter.isCompleted) {
+        _initCompleter.complete();
+      }
     }
+  }
+
+  Future<void> _syncSessionInBackground() async {
+    try {
+      final user = await _authService.syncUserFromServer();
+      if (user == null) return;
+      await _authService.resetAiCountIfNeeded(user: user);
+      await PocketBaseService.instance.markSessionActive();
+      state = AuthState(user: user, isLoggedIn: true);
+    } catch (_) {}
   }
 
   Future<bool> login({
@@ -66,6 +116,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final user = await _authService.login(email: email, password: password);
       state = AuthState(user: user, isLoggedIn: true);
+      
       return true;
     } on Exception catch (e) {
       final msg = e.toString();
@@ -90,26 +141,52 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<bool> register({
+  Future<bool> adminLogin({
+    required String email,
+    required String password,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final user = await _authService.adminLogin(email: email, password: password);
+      state = AuthState(user: user, isLoggedIn: true);
+      return true;
+    } on Exception catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString().contains('user_role_not_admin') 
+            ? 'Akses ditolak: Anda bukan admin.' 
+            : 'Email atau password salah.',
+      );
+      throw e;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Terjadi kesalahan. Coba lagi.',
+      );
+      throw e;
+    }
+  }
+
+  Future<String?> register({
     required String name,
     required String email,
     required String password,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _authService.register(
+      final user = await _authService.register(
         name: name,
         email: email,
         password: password,
       );
       state = state.copyWith(isLoading: false);
-      return true;
+      return user.otpCode;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         error: 'Registrasi gagal. Email mungkin sudah terdaftar.',
       );
-      return false;
+      return null;
     }
   }
 
@@ -130,6 +207,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Step 2: Auto-login setelah OTP berhasil
       final user = await _authService.login(email: email, password: password);
       state = AuthState(user: user, isLoggedIn: true);
+      
+
+      // Step 3: Kirim welcome notification untuk pengguna baru
+      _sendWelcomeNotification(userId: user.id, name: user.name);
+
       return true;
     } catch (e) {
       state = state.copyWith(
@@ -138,6 +220,50 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       return false;
     }
+  }
+
+  /// Kirim welcome notification ke pengguna baru (fire-and-forget)
+  void _sendWelcomeNotification({
+    required String userId,
+    required String name,
+  }) {
+    final svc = NotificationService();
+    final firstName = name.split(' ').first;
+
+    // Notifikasi 1: Selamat datang
+    svc.createNotification(
+      userId: userId,
+      title: '🎉 Selamat Datang di AURA, $firstName!',
+      message:
+          'Halo $firstName! Senang kamu bergabung. AURA siap membantu kamu '
+          'mengelola tugas, keuangan, dan produktivitas harianmu. Mulai '
+          'eksplorasi sekarang! 🚀',
+      type: NotificationType.general,
+      priority: NotificationPriority.high,
+    );
+
+    // Notifikasi 2: Tips memulai
+    svc.createNotification(
+      userId: userId,
+      title: '💡 Tips: Mulai dengan Tugas Pertamamu',
+      message:
+          'Coba tambahkan tugas pertamamu! Ketuk ikon "+" di halaman Tugas, '
+          'atau minta AURA langsung via chat: "tambah tugas belajar Flutter".',
+      type: NotificationType.general,
+      priority: NotificationPriority.medium,
+    );
+
+    // Notifikasi 3: Fitur AI
+    svc.createNotification(
+      userId: userId,
+      title: '🤖 Coba Chat dengan AURA AI',
+      message:
+          'AURA punya asisten AI yang bisa membantumu mencatat pengeluaran, '
+          'menambah tugas, dan menjawab pertanyaan seputar produktivitas — '
+          'cukup dengan mengirim pesan!',
+      type: NotificationType.general,
+      priority: NotificationPriority.medium,
+    );
   }
 
   Future<bool> verifyOtp({
@@ -222,7 +348,7 @@ final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 // Store registration email & password for OTP screen
 final registrationDataProvider = StateProvider<Map<String, String>>((ref) {
-  return {'email': '', 'password': ''};
+  return {'email': '', 'password': '', 'otp': ''};
 });
 
 final authStateProvider =

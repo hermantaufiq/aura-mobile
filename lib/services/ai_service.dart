@@ -1,140 +1,265 @@
-import 'package:dio/dio.dart';
+import 'dart:convert';
+import 'package:logger/logger.dart';
+
+import 'package:http/http.dart' as http;
 import 'package:pocketbase/pocketbase.dart';
+
 import '../core/constants/app_constants.dart';
 import '../models/ai_chat_model.dart';
+import '../models/ai_user_context.dart';
 import 'pocketbase_service.dart';
 
 class AiService {
   final PocketBase _pb = PocketBaseService.instance.pb;
-  late final Dio _dio;
+  final _logger = Logger();
 
-  AiService() {
-    _dio = Dio(BaseOptions(
-      baseUrl: AppConstants.groqApiUrl,
-      headers: {
-        'Authorization': 'Bearer ${AppConstants.groqApiKey}',
-        'Content-Type': 'application/json',
-      },
-      connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 60),
-    ));
-  }
+  static const _baseSystemPrompt = '''Kamu adalah AURA, asisten pribadi AI yang cerdas, ramah, dan profesional.
+Kamu membantu pengguna mengelola tugas harian dan keuangan mereka.
+Berikan jawaban yang helpful, concise, dan dalam Bahasa Indonesia.
+Fokus pada produktivitas, manajemen waktu, dan kesehatan keuangan pribadi.
+Jangan berikan informasi yang berbahaya atau tidak etis.''';
 
-  // Send message to Groq AI
-  Future<String> sendMessage({
+
+  /// Kirim pesan ke Groq - TEXT ONLY (no function calling untuk sekarang)
+  Future<Map<String, dynamic>> sendMessage({
     required String message,
     required String userId,
     String? systemContext,
   }) async {
-    final systemPrompt = systemContext ??
-        '''Kamu adalah AURA, asisten pribadi AI yang cerdas, ramah, dan profesional. 
-        Kamu membantu pengguna mengelola tugas harian dan keuangan mereka.
-        Berikan jawaban yang helpful, concise, dan dalam Bahasa Indonesia.
-        Fokus pada produktivitas, manajemen waktu, dan kesehatan keuangan pribadi.
-        Jangan berikan informasi yang berbahaya atau tidak etis.''';
+    final systemPrompt = systemContext ?? _baseSystemPrompt;
 
-    final response = await _dio.post(
-      '',
-      data: {
-        'model': AppConstants.groqModel,
-        'messages': [
-          {'role': 'system', 'content': systemPrompt},
-          {'role': 'user', 'content': message},
-        ],
-        'temperature': 0.7,
-        'max_tokens': 1024,
-      },
-    );
+    final uri = Uri.parse('${AppConstants.groqApiUrl}/chat/completions');
+    
+    try {
+      final response = await http.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer ${AppConstants.groqApiKey}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'model': AppConstants.groqModel,
+          'messages': [
+            {'role': 'system', 'content': systemPrompt},
+            {'role': 'user', 'content': message},
+          ],
+          'temperature': 0.7,
+          'max_tokens': 512,
+        }),
+      ).timeout(const Duration(seconds: 30));
 
-    final content =
-        response.data['choices'][0]['message']['content'] as String;
-    return content.trim();
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final choice = data['choices'][0];
+        final aiMessage = choice['message'];
+        final content = (aiMessage['content'] as String? ?? '').trim();
+
+        return {
+          'type': 'text_response',
+          'content': content,
+        };
+      } else {
+        final errorBody = response.body;
+        _logger.e('Groq API error ${response.statusCode}: $errorBody');
+        throw Exception('Groq API error ${response.statusCode}');
+      }
+    } catch (e) {
+      _logger.e('sendMessage error: $e');
+      rethrow;
+    }
   }
 
-  // Save chat to PocketBase
+
+  /// Kirim pesan ke Groq dengan konteks data user + riwayat percakapan.
+  Future<String> sendWithContext({
+    required String userMessage,
+    required AiUserContext context,
+    List<Map<String, String>> conversationHistory = const [],
+    String? extraInstruction,
+  }) async {
+    final systemContent = StringBuffer(_baseSystemPrompt)
+      ..writeln()
+      ..writeln(context.toPromptSection());
+
+    if (extraInstruction != null && extraInstruction.isNotEmpty) {
+      systemContent
+        ..writeln()
+        ..writeln(extraInstruction);
+    }
+
+    final messages = <Map<String, String>>[
+      {'role': 'system', 'content': systemContent.toString()},
+      ...conversationHistory,
+      {'role': 'user', 'content': userMessage},
+    ];
+
+    return _callGroq(messages);
+  }
+
+  Future<String> _callGroq(List<Map<String, String>> messages) async {
+    final uri = Uri.parse('${AppConstants.groqApiUrl}/chat/completions');
+    final response = await http.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer ${AppConstants.groqApiKey}',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'model': AppConstants.groqModel,
+        'messages': messages,
+        'temperature': 0.7,
+        'max_tokens': 1024,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return (data['choices'][0]['message']['content'] as String).trim();
+    }
+
+    final error = jsonDecode(response.body);
+    throw Exception(
+      'Groq API error ${response.statusCode}: '
+      '${error['error']?['message'] ?? response.body}',
+    );
+  }
+
   Future<AiChatModel> saveChat({
     required String userId,
     required String message,
     required String response,
+    String type = AppConstants.aiTypeChat,
   }) async {
-    final record = await _pb.collection(AppConstants.colAiChats).create(
-      body: {
-        'user': userId,
-        'message': message,
-        'response': response,
-      },
-    );
-    return AiChatModel.fromJson({...record.toJson(), ...record.data});
+    final body = <String, dynamic>{
+      'user': userId,
+      'message': message,
+      'response': response,
+      'type': type,
+    };
+
+    try {
+      final record = await _pb.collection(AppConstants.colAiChats).create(
+            body: body,
+            headers: PocketBaseService.instance.authHeaders(),
+          );
+      return AiChatModel.fromJson({...record.toJson(), ...record.data});
+    } catch (_) {
+      // Fallback jika field type belum dimigrasi
+      body.remove('type');
+      final record = await _pb.collection(AppConstants.colAiChats).create(
+            body: body,
+            headers: PocketBaseService.instance.authHeaders(),
+          );
+      return AiChatModel.fromJson({...record.toJson(), ...record.data});
+    }
   }
 
-  // Get chat history
   Future<List<AiChatModel>> getChatHistory({
     required String userId,
     int limit = 50,
+    String? type,
   }) async {
-    final result = await _pb.collection(AppConstants.colAiChats).getList(
-      filter: 'user = "$userId"',
-      sort: '-created',
-      perPage: limit,
-    );
+    var filter = 'user = "$userId"';
+    if (type != null) {
+      filter += ' && type = "$type"';
+    }
 
-    return result.items
-        .map((r) => AiChatModel.fromJson({...r.toJson(), ...r.data}))
-        .toList()
-        .reversed
-        .toList();
+    try {
+      final result = await _pb.collection(AppConstants.colAiChats).getList(
+            filter: filter,
+            sort: '-created',
+            perPage: limit,
+            headers: PocketBaseService.instance.authHeaders(),
+          );
+
+      return result.items
+          .map((r) => AiChatModel.fromJson({...r.toJson(), ...r.data}))
+          .toList()
+          .reversed
+          .toList();
+    } catch (_) {
+      if (type == null) rethrow;
+      return getChatHistory(userId: userId, limit: limit);
+    }
   }
 
-  // Generate financial insight
   Future<String> generateFinancialInsight({
     required String userId,
-    required double totalIncome,
-    required double totalExpense,
-    required double balance,
-    required Map<String, double> expenseByCategory,
+    required AiUserContext context,
   }) async {
-    final categoryText = expenseByCategory.entries
+    final categoryText = context.expenseByCategory.entries
         .map((e) => '${e.key}: Rp${e.value.toStringAsFixed(0)}')
         .join(', ');
 
     final prompt = '''Analisis keuangan saya bulan ini:
-    - Total Pemasukan: Rp${totalIncome.toStringAsFixed(0)}
-    - Total Pengeluaran: Rp${totalExpense.toStringAsFixed(0)}
-    - Saldo Bersih: Rp${balance.toStringAsFixed(0)}
-    - Pengeluaran per Kategori: $categoryText
-    
-    Berikan insight singkat (3-4 poin) tentang kondisi keuangan saya dan rekomendasi untuk bulan depan.''';
+- Total Pemasukan: Rp${context.totalIncome.toStringAsFixed(0)}
+- Total Pengeluaran: Rp${context.totalExpense.toStringAsFixed(0)}
+- Saldo Bersih: Rp${context.balance.toStringAsFixed(0)}
+- Pengeluaran per Kategori: $categoryText
 
-    return sendMessage(message: prompt, userId: userId);
-  }
+Berikan insight singkat (3-4 poin) tentang kondisi keuangan saya dan rekomendasi untuk bulan depan.''';
 
-  // Generate task priority recommendation
-  Future<String> generateTaskRecommendation({
-    required String userId,
-    required List<String> pendingTasks,
-    required List<String> overdueTasks,
-  }) async {
-    final pendingText = pendingTasks.take(10).join(', ');
-    final overdueText = overdueTasks.take(5).join(', ');
-
-    final prompt = '''Tugas yang perlu saya selesaikan:
-    - Tugas Pending: $pendingText
-    - Tugas Overdue: $overdueText
-    
-    Berikan rekomendasi prioritas tugas yang harus saya fokuskan hari ini (maksimal 3-4 tugas).''';
-
-    return sendMessage(message: prompt, userId: userId);
-  }
-
-  // Clear chat history
-  Future<void> clearChatHistory({required String userId}) async {
-    final records = await _pb.collection(AppConstants.colAiChats).getList(
-      filter: 'user = "$userId"',
-      perPage: 500,
+    final response = await sendWithContext(
+      userMessage: prompt,
+      context: context,
+      extraInstruction:
+          'Fokus pada analisis keuangan dan rekomendasi praktis. Format dengan bullet points.',
     );
 
+    await saveChat(
+      userId: userId,
+      message: prompt,
+      response: response,
+      type: AppConstants.aiTypeFinanceInsight,
+    );
+
+    return response;
+  }
+
+  Future<String> generateTaskRecommendation({
+    required String userId,
+    required AiUserContext context,
+  }) async {
+    final pendingText =
+        context.pendingTasks.take(10).map((t) => t.title).join(', ');
+    final overdueText =
+        context.overdueTasks.take(5).map((t) => t.title).join(', ');
+
+    final prompt = '''Tugas yang perlu saya selesaikan:
+- Tugas Pending: $pendingText
+- Tugas Overdue: $overdueText
+
+Berikan rekomendasi prioritas tugas yang harus saya fokuskan hari ini (maksimal 3-4 tugas).''';
+
+    final response = await sendWithContext(
+      userMessage: prompt,
+      context: context,
+      extraInstruction:
+          'Fokus pada prioritas tugas hari ini. Sebutkan tugas spesifik dari data user.',
+    );
+
+    await saveChat(
+      userId: userId,
+      message: prompt,
+      response: response,
+      type: AppConstants.aiTypeTaskInsight,
+    );
+
+    return response;
+  }
+
+  Future<void> clearChatHistory({required String userId}) async {
+    final records = await _pb.collection(AppConstants.colAiChats).getList(
+          filter: 'user = "$userId"',
+          perPage: 500,
+          headers: PocketBaseService.instance.authHeaders(),
+        );
+
     for (final record in records.items) {
-      await _pb.collection(AppConstants.colAiChats).delete(record.id);
+      await _pb.collection(AppConstants.colAiChats).delete(
+            record.id,
+            headers: PocketBaseService.instance.authHeaders(),
+          );
     }
   }
 }

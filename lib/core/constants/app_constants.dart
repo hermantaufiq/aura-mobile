@@ -1,11 +1,19 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class AppConstants {
   // PocketBase
+  // Gunakan 127.0.0.1 agar dapat terhubung dengan baik di semua environment
   static const String pbBaseUrl = 'http://127.0.0.1:8090';
 
+  // AI API (OpenAI)
+  static const String openaiApiUrl = 'https://api.openai.com/v1'; // Base URL untuk OpenAI
+  static String get openaiApiKey => dotenv.env['OPENAI_API_KEY'] ?? ''; 
+  static const String openaiModel = 'gpt-3.5-turbo'; // atau 'gpt-4' untuk hasil lebih baik
+  
   // AI API (Groq - Free Tier)
-  static const String groqApiUrl = 'https://api.groq.com/openai/v1/chat/completions';
-  static const String groqApiKey = 'YOUR_GROQ_API_KEY'; // Ganti dengan API key Anda
-  static const String groqModel = 'llama3-70b-8192';
+  static const String groqApiUrl = 'https://api.groq.com/openai/v1';
+  static String get groqApiKey => dotenv.env['GROQ_API_KEY'] ?? '';
+  static const String groqModel = 'llama-3.1-8b-instant';
 
   // App Info
   static const String appName = 'AURA';
@@ -25,6 +33,8 @@ class AppConstants {
   static const String keyUserName = 'pb_user_name';
   static const String keyUserRole = 'pb_user_role';
   static const String keyIsPremium = 'pb_is_premium';
+  static const String keyUserCache = 'pb_user_cache';
+  static const String keySessionActive = 'aura_session_active';
   static const String keyOnboarded = 'aura_onboarded';
 
   // Collections
@@ -32,6 +42,11 @@ class AppConstants {
   static const String colTasks = 'tasks';
   static const String colFinances = 'finances';
   static const String colAiChats = 'ai_chats';
+
+  // AI chat types (PocketBase ai_chats.type)
+  static const String aiTypeChat = 'chat';
+  static const String aiTypeFinanceInsight = 'finance_insight';
+  static const String aiTypeTaskInsight = 'task_insight';
 
   // Task Priority
   static const String priorityLow = 'low';

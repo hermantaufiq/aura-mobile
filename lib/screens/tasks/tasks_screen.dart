@@ -44,11 +44,12 @@ class _TasksScreenState extends ConsumerState<TasksScreen>
   @override
   Widget build(BuildContext context) {
     final taskState = ref.watch(taskProvider);
+    final ts = AppTextStyles.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.bgDark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Tugas Saya', style: AppTextStyles.headlineMedium),
+        title: Text('Tugas Saya', style: ts.headlineMedium),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -65,7 +66,7 @@ class _TasksScreenState extends ConsumerState<TasksScreen>
           onTap: (_) => setState(() {}),
           indicatorColor: AppColors.primary,
           labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textMuted,
+          unselectedLabelColor: AppColors.adaptiveTextMuted(context),
           labelStyle:
               const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           tabs: _tabs.map((t) => Tab(text: t)).toList(),
@@ -85,21 +86,21 @@ class _TasksScreenState extends ConsumerState<TasksScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.task_alt_rounded,
-                      color: AppColors.textMuted, size: 60),
+                  Icon(Icons.task_alt_rounded,
+                      color: AppColors.adaptiveTextMuted(context), size: 60),
                   const SizedBox(height: 16),
                   Text('Belum ada tugas',
-                      style: AppTextStyles.headlineSmall),
+                      style: ts.headlineSmall),
                   const SizedBox(height: 8),
                   Text('Tap tombol Tambah untuk membuat tugas baru',
-                      style: AppTextStyles.bodySmall),
+                      style: ts.bodySmall),
                 ],
               ),
             );
           }
           return RefreshIndicator(
             color: AppColors.primary,
-            backgroundColor: AppColors.bgCard,
+            backgroundColor: Theme.of(context).cardColor,
             onRefresh: () => ref.read(taskProvider.notifier).loadTasks(),
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -176,11 +177,11 @@ class _TaskCard extends StatelessWidget {
     }
   }
 
-  Color get _statusColor {
+  Color _statusColor(BuildContext context) {
     switch (task.status) {
       case 'done': return AppColors.success;
       case 'in_progress': return AppColors.warning;
-      default: return AppColors.textMuted;
+      default: return AppColors.adaptiveTextMuted(context);
     }
   }
 
@@ -194,13 +195,14 @@ class _TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: task.isOverdue ? AppColors.error.withValues(alpha: 0.4) : AppColors.border,
+          color: task.isOverdue ? AppColors.error.withValues(alpha: 0.4) : Theme.of(context).dividerColor,
         ),
       ),
       child: Column(
@@ -223,27 +225,27 @@ class _TaskCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(task.title,
-                          style: AppTextStyles.headlineSmall.copyWith(
+                          style: ts.headlineSmall.copyWith(
                             decoration: task.status == 'done'
                                 ? TextDecoration.lineThrough
                                 : null,
                             color: task.status == 'done'
-                                ? AppColors.textMuted
-                                : AppColors.textPrimary,
+                                ? AppColors.adaptiveTextMuted(context)
+                                : AppColors.adaptiveTextPrimary(context),
                           )),
                     ),
                     PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert,
-                          color: AppColors.textMuted, size: 20),
-                      color: AppColors.bgElevated,
+                      icon: Icon(Icons.more_vert,
+                          color: AppColors.adaptiveTextMuted(context), size: 20),
+                      color: AppColors.adaptiveBgElevated(context),
                       itemBuilder: (_) => [
-                        const PopupMenuItem(
+                        PopupMenuItem(
                             value: 'edit',
                             child: Row(children: [
                               Icon(Icons.edit_outlined,
-                                  size: 16, color: AppColors.textPrimary),
-                              SizedBox(width: 8),
-                              Text('Edit'),
+                                  size: 16, color: AppColors.adaptiveTextPrimary(context)),
+                              const SizedBox(width: 8),
+                              const Text('Edit'),
                             ])),
                         const PopupMenuItem(
                             value: 'delete',
@@ -265,7 +267,7 @@ class _TaskCard extends StatelessWidget {
                 if (task.description.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(task.description,
-                      style: AppTextStyles.bodySmall,
+                      style: ts.bodySmall,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
                 ],
@@ -281,7 +283,7 @@ class _TaskCard extends StatelessWidget {
                         label: DateFormat('dd MMM').format(task.deadline!),
                         color: task.isOverdue
                             ? AppColors.error
-                            : AppColors.textMuted,
+                            : AppColors.adaptiveTextMuted(context),
                         icon: Icons.calendar_today_outlined,
                       ),
                     const Spacer(),
@@ -292,21 +294,21 @@ class _TaskCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: _statusColor.withValues(alpha: 0.15),
+                          color: _statusColor(context).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                              color: _statusColor.withValues(alpha: 0.4)),
+                              color: _statusColor(context).withValues(alpha: 0.4)),
                         ),
                         child: Row(
                           children: [
                             Text(_statusLabel,
                                 style: TextStyle(
-                                    color: _statusColor,
+                                    color: _statusColor(context),
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600)),
                             const SizedBox(width: 4),
                             Icon(Icons.arrow_drop_down,
-                                color: _statusColor, size: 16),
+                                color: _statusColor(context), size: 16),
                           ],
                         ),
                       ),
@@ -322,9 +324,10 @@ class _TaskCard extends StatelessWidget {
   }
 
   void _showStatusMenu(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.bgCard,
+      backgroundColor: Theme.of(context).cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -337,21 +340,21 @@ class _TaskCard extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.border,
+                color: Theme.of(context).dividerColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 16),
-            Text('Ubah Status', style: AppTextStyles.headlineSmall),
+            Text('Ubah Status', style: ts.headlineSmall),
             const SizedBox(height: 16),
             ...[
-              ('pending', 'Pending', AppColors.textMuted),
+              ('pending', 'Pending', AppColors.adaptiveTextMuted(context)),
               ('in_progress', 'Sedang Dikerjakan', AppColors.warning),
               ('done', 'Selesai', AppColors.success),
             ].map((s) => ListTile(
                   leading: Icon(Icons.circle, color: s.$3, size: 14),
                   title:
-                      Text(s.$2, style: AppTextStyles.bodyMedium),
+                      Text(s.$2, style: ts.bodyMedium),
                   trailing: task.status == s.$1
                       ? const Icon(Icons.check, color: AppColors.primary)
                       : null,

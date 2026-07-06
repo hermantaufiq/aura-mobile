@@ -11,6 +11,7 @@ class UserModel extends Equatable {
   final int aiDailyCount;
   final DateTime? aiLastReset;
   final String? avatar;
+  final String? otpCode; // Untuk keperluan testing dev
 
   const UserModel({
     required this.id,
@@ -23,6 +24,7 @@ class UserModel extends Equatable {
     this.aiDailyCount = 0,
     this.aiLastReset,
     this.avatar,
+    this.otpCode,
   });
 
   bool get isPremiumActive {
@@ -47,6 +49,7 @@ class UserModel extends Equatable {
           ? DateTime.tryParse(json['ai_last_reset'])
           : null,
       avatar: json['avatar'],
+      otpCode: json['otp_code'],
     );
   }
 
@@ -62,6 +65,7 @@ class UserModel extends Equatable {
       'ai_daily_count': aiDailyCount,
       'ai_last_reset': aiLastReset?.toIso8601String(),
       'avatar': avatar,
+      'otp_code': otpCode,
     };
   }
 
@@ -76,6 +80,7 @@ class UserModel extends Equatable {
     int? aiDailyCount,
     DateTime? aiLastReset,
     String? avatar,
+    String? otpCode,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -88,12 +93,13 @@ class UserModel extends Equatable {
       aiDailyCount: aiDailyCount ?? this.aiDailyCount,
       aiLastReset: aiLastReset ?? this.aiLastReset,
       avatar: avatar ?? this.avatar,
+      otpCode: otpCode ?? this.otpCode,
     );
   }
 
   @override
   List<Object?> get props => [
         id, name, email, role, isVerified, isPremium,
-        premiumExpiredAt, aiDailyCount, aiLastReset, avatar,
+        premiumExpiredAt, aiDailyCount, aiLastReset, avatar, otpCode,
       ];
 }

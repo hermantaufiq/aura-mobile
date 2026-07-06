@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/finance_provider.dart';
-import '../../providers/task_provider.dart';
+import '../../core/utils/navigation_utils.dart';
 import '../../providers/ai_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class AiInsightScreen extends ConsumerStatefulWidget {
   const AiInsightScreen({super.key});
@@ -21,41 +21,41 @@ class _AiInsightScreenState extends ConsumerState<AiInsightScreen> {
   bool _loadingFinance = false;
   bool _loadingTask = false;
 
+  Future<bool> _checkAiQuota() async {
+    final canUse = ref.read(authStateProvider.notifier).canUseAi;
+    if (canUse) return true;
+    _showLimitDialog();
+    return false;
+  }
+
   Future<void> _generateFinancialInsight() async {
     final isPremium = ref.read(isPremiumProvider);
     if (!isPremium) {
       _showPremiumDialog();
       return;
     }
+    if (!await _checkAiQuota()) return;
 
     final user = ref.read(currentUserProvider);
     if (user == null) return;
 
     setState(() => _loadingFinance = true);
 
-    final financeState = ref.read(financeProvider);
-    final expenseByCategory = await ref
-        .read(financeServiceProvider)
-        .getExpenseByCategory(
-          userId: user.id,
-          month: financeState.selectedMonth,
-          year: financeState.selectedYear,
-        );
-
     try {
+      final context = await ref.read(aiContextBuilderProvider).build(user.id);
       final insight = await ref.read(aiServiceProvider).generateFinancialInsight(
             userId: user.id,
-            totalIncome: financeState.totalIncome,
-            totalExpense: financeState.totalExpense,
-            balance: financeState.balance,
-            expenseByCategory: expenseByCategory,
+            context: context,
           );
-      setState(() {
-        _financialInsight = insight;
-        _loadingFinance = false;
-      });
+      await ref.read(authStateProvider.notifier).incrementAiCount();
+      if (mounted) {
+        setState(() {
+          _financialInsight = insight;
+          _loadingFinance = false;
+        });
+      }
     } catch (e) {
-      setState(() => _loadingFinance = false);
+      if (mounted) setState(() => _loadingFinance = false);
     }
   }
 
@@ -65,30 +65,29 @@ class _AiInsightScreenState extends ConsumerState<AiInsightScreen> {
       _showPremiumDialog();
       return;
     }
+    if (!await _checkAiQuota()) return;
 
     final user = ref.read(currentUserProvider);
     if (user == null) return;
 
     setState(() => _loadingTask = true);
 
-    final taskState = ref.read(taskProvider);
-    final pending = taskState.pendingTasks.map((t) => t.title).toList();
-    final overdue = taskState.overdueTasks.map((t) => t.title).toList();
-
     try {
-      final insight = await ref
-          .read(aiServiceProvider)
-          .generateTaskRecommendation(
-            userId: user.id,
-            pendingTasks: pending,
-            overdueTasks: overdue,
-          );
-      setState(() {
-        _taskInsight = insight;
-        _loadingTask = false;
-      });
+      final context = await ref.read(aiContextBuilderProvider).build(user.id);
+      final insight =
+          await ref.read(aiServiceProvider).generateTaskRecommendation(
+                userId: user.id,
+                context: context,
+              );
+      await ref.read(authStateProvider.notifier).incrementAiCount();
+      if (mounted) {
+        setState(() {
+          _taskInsight = insight;
+          _loadingTask = false;
+        });
+      }
     } catch (e) {
-      setState(() => _loadingTask = false);
+      if (mounted) setState(() => _loadingTask = false);
     }
   }
 
@@ -96,7 +95,7 @@ class _AiInsightScreenState extends ConsumerState<AiInsightScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppColors.bgCard,
+        backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(children: [
           const Icon(Icons.star_rounded, color: AppColors.gold),
@@ -105,13 +104,52 @@ class _AiInsightScreenState extends ConsumerState<AiInsightScreen> {
         ]),
         content: Text(
           'AI Insight hanya tersedia untuk pengguna Premium.',
-          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+          style: AppTextStyles.bodyMedium
+              .copyWith(color: AppColors.textSecondary),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal')),
           ElevatedButton(
-            onPressed: () { Navigator.pop(context); context.go('/premium'); },
+            onPressed: () {
+              Navigator.pop(context);
+              context.go('/premium');
+            },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.gold),
+            child: const Text('Upgrade'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLimitDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Theme.of(context).cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.lock_outline, color: AppColors.gold, size: 22),
+            SizedBox(width: 8),
+            Text('Batas AI Tercapai'),
+          ],
+        ),
+        content: const Text(
+          'Kuota AI harian habis. Upgrade Premium untuk akses tanpa batas.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Nanti'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.go('/premium');
+            },
             child: const Text('Upgrade'),
           ),
         ],
@@ -121,140 +159,44 @@ class _AiInsightScreenState extends ConsumerState<AiInsightScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isPremium = ref.watch(isPremiumProvider);
-    final taskState = ref.watch(taskProvider);
-    final financeState = ref.watch(financeProvider);
+    final ts = AppTextStyles.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.bgDark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('AI Insight', style: AppTextStyles.headlineMedium),
+        title: Text('AI Insight', style: ts.headlineMedium),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => context.pop(),
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => safePop(context, fallback: '/ai'),
         ),
       ),
-      body: SingleChildScrollView(
+      body: ListView(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Banner
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.secondary],
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.insights_rounded, color: Colors.white, size: 40),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Analisis Cerdas', style: AppTextStyles.headlineMedium.copyWith(color: Colors.white)),
-                        Text('Dapatkan insight dari AI AURA', style: AppTextStyles.bodySmall.copyWith(color: Colors.white70)),
-                      ],
-                    ),
-                  ),
-                  if (!isPremium)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.gold,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text('Premium', style: AppTextStyles.labelSmall.copyWith(color: Colors.white)),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Quick Stats
-            Text('Ringkasan', style: AppTextStyles.headlineSmall),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: _StatCard(
-                  label: 'Tugas Aktif',
-                  value: '${taskState.pendingTasks.length + taskState.inProgressTasks.length}',
-                  icon: Icons.task_rounded,
-                  color: AppColors.primary,
-                )),
-                const SizedBox(width: 10),
-                Expanded(child: _StatCard(
-                  label: 'Terlambat',
-                  value: '${taskState.overdueTasks.length}',
-                  icon: Icons.warning_amber_rounded,
-                  color: AppColors.error,
-                )),
-                const SizedBox(width: 10),
-                Expanded(child: _StatCard(
-                  label: 'Saldo Bulan',
-                  value: financeState.balance >= 0 ? '+' : '-',
-                  icon: Icons.account_balance_outlined,
-                  color: financeState.balance >= 0 ? AppColors.success : AppColors.error,
-                )),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Financial Insight Card
-            _InsightCard(
-              title: '💰 Insight Keuangan',
-              subtitle: 'Analisis keuangan bulan ini',
-              insight: _financialInsight,
-              isLoading: _loadingFinance,
-              isPremium: isPremium,
-              onGenerate: _generateFinancialInsight,
-            ),
-            const SizedBox(height: 16),
-
-            // Task Insight Card
-            _InsightCard(
-              title: '📋 Prioritas Tugas',
-              subtitle: 'Rekomendasi tugas hari ini',
-              insight: _taskInsight,
-              isLoading: _loadingTask,
-              isPremium: isPremium,
-              onGenerate: _generateTaskInsight,
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  const _StatCard({required this.label, required this.value, required this.icon, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
         children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(value, style: AppTextStyles.headlineMedium.copyWith(color: color)),
-          Text(label, style: AppTextStyles.caption, textAlign: TextAlign.center),
+          Text(
+            'Insight berdasarkan data tugas & keuangan Anda. Hasil disimpan ke riwayat AI.',
+            style: ts.bodyMedium.copyWith(
+              color: AppColors.adaptiveTextMuted(context),
+            ),
+          ),
+          const SizedBox(height: 20),
+          _InsightCard(
+            title: 'Insight Keuangan',
+            icon: Icons.account_balance_wallet_outlined,
+            color: AppColors.success,
+            insight: _financialInsight,
+            isLoading: _loadingFinance,
+            onGenerate: _generateFinancialInsight,
+          ),
+          const SizedBox(height: 16),
+          _InsightCard(
+            title: 'Rekomendasi Tugas',
+            icon: Icons.task_alt_outlined,
+            color: AppColors.primary,
+            insight: _taskInsight,
+            isLoading: _loadingTask,
+            onGenerate: _generateTaskInsight,
+          ),
         ],
       ),
     );
@@ -263,78 +205,73 @@ class _StatCard extends StatelessWidget {
 
 class _InsightCard extends StatelessWidget {
   final String title;
-  final String subtitle;
+  final IconData icon;
+  final Color color;
   final String? insight;
   final bool isLoading;
-  final bool isPremium;
   final VoidCallback onGenerate;
 
   const _InsightCard({
     required this.title,
-    required this.subtitle,
+    required this.icon,
+    required this.color,
     required this.insight,
     required this.isLoading,
-    required this.isPremium,
     required this.onGenerate,
   });
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
+
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.bgCard,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title, style: AppTextStyles.headlineSmall),
-                      Text(subtitle, style: AppTextStyles.caption),
-                    ],
-                  ),
-                ),
-                if (!isPremium)
-                  const Icon(Icons.lock_outline, color: AppColors.gold, size: 18),
-              ],
-            ),
+          Row(
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title, style: ts.headlineSmall)),
+            ],
           ),
-          const Divider(height: 1, color: AppColors.border),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                : insight != null
-                    ? Text(insight!, style: AppTextStyles.bodyMedium.copyWith(height: 1.6))
-                    : Column(
-                        children: [
-                          Text(
-                            isPremium ? 'Tap tombol di bawah untuk generate insight' : 'Upgrade ke Premium untuk fitur ini',
-                            style: AppTextStyles.bodySmall,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: onGenerate,
-                              icon: Icon(isPremium ? Icons.auto_awesome : Icons.star_rounded, size: 16),
-                              label: Text(isPremium ? 'Generate Insight' : 'Upgrade Premium'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isPremium ? AppColors.primary : AppColors.gold,
-                              ),
-                            ),
-                          ),
-                        ],
+          const SizedBox(height: 12),
+          if (insight != null)
+            Text(insight!, style: ts.bodyMedium)
+          else
+            Text(
+              'Tekan tombol untuk menghasilkan insight dari data Anda.',
+              style: ts.caption,
+            ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: isLoading ? null : onGenerate,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: color,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
                       ),
+                    )
+                  : Text(insight == null ? 'Generate Insight' : 'Perbarui Insight'),
+            ),
           ),
         ],
       ),

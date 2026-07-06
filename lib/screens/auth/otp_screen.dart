@@ -306,10 +306,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         decoration: InputDecoration(
           counterText: '',
           filled: true,
-          fillColor: AppColors.bgSurface,
+          fillColor: Theme.of(context).inputDecorationTheme.fillColor ?? Theme.of(context).cardColor,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.border),
+            borderSide: BorderSide(color: Theme.of(context).dividerColor),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -317,7 +317,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.border),
+            borderSide: BorderSide(color: Theme.of(context).dividerColor),
           ),
         ),
         onChanged: (v) {

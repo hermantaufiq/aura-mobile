@@ -5,6 +5,7 @@ class AiChatModel extends Equatable {
   final String userId;
   final String message;
   final String response;
+  final String type;
   final DateTime created;
 
   const AiChatModel({
@@ -12,6 +13,7 @@ class AiChatModel extends Equatable {
     required this.userId,
     required this.message,
     required this.response,
+    this.type = 'chat',
     required this.created,
   });
 
@@ -21,6 +23,7 @@ class AiChatModel extends Equatable {
       userId: json['user'] ?? '',
       message: json['message'] ?? '',
       response: json['response'] ?? '',
+      type: json['type'] ?? 'chat',
       created: DateTime.tryParse(json['created'] ?? '') ?? DateTime.now(),
     );
   }
@@ -30,11 +33,12 @@ class AiChatModel extends Equatable {
       'user': userId,
       'message': message,
       'response': response,
+      'type': type,
     };
   }
 
   @override
-  List<Object?> get props => [id, userId, message, response, created];
+  List<Object?> get props => [id, userId, message, response, type, created];
 }
 
 // Chat message for local display (not persisted individually)

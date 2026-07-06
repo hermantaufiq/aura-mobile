@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/utils/navigation_utils.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../providers/task_provider.dart';
-import '../../services/notification_service.dart';
 import '../../widgets/common/gradient_button.dart';
 import '../../widgets/common/aura_text_field.dart';
 import '../../widgets/common/aura_snackbar.dart';
@@ -62,9 +61,9 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
+          colorScheme: ColorScheme.dark(
             primary: AppColors.primary,
-            surface: AppColors.bgCard,
+            surface: Theme.of(context).cardColor,
           ),
         ),
         child: child!,
@@ -101,23 +100,11 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
     setState(() => _isLoading = false);
 
     if (ok) {
-      // Schedule reminder if enabled and deadline is set
-      if (_setReminder && _deadline != null) {
-        final taskId = widget.taskId ??
-            DateTime.now().millisecondsSinceEpoch.toString();
-        await NotificationService().scheduleTaskReminder(
-          notifId: NotificationService.taskNotifId(taskId),
-          taskTitle: _titleCtrl.text.trim(),
-          deadline: _deadline!,
-        );
-      }
       if (!mounted) return;
       AuraSnackbar.success(
           context,
-          _isEdit
-              ? 'Tugas diperbarui${_setReminder ? ' + Pengingat diset' : ''}'
-              : 'Tugas dibuat${_setReminder ? ' + Pengingat diset' : ''}');
-      context.pop();
+          _isEdit ? 'Tugas diperbarui' : 'Tugas dibuat');
+      safePop(context, fallback: '/tasks');
     } else {
       AuraSnackbar.error(context, 'Gagal menyimpan tugas');
     }
@@ -125,14 +112,15 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final ts = AppTextStyles.of(context);
     return Scaffold(
-      backgroundColor: AppColors.bgDark,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit Tugas' : 'Tambah Tugas',
-            style: AppTextStyles.headlineMedium),
+            style: ts.headlineMedium),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
-          onPressed: () => context.pop(),
+          onPressed: () => safePop(context, fallback: '/tasks'),
         ),
       ),
       body: SingleChildScrollView(
@@ -163,39 +151,39 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
               const SizedBox(height: 20),
 
               // Deadline
-              Text('Deadline', style: AppTextStyles.labelLarge),
+              Text('Deadline', style: ts.labelLarge),
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: _pickDeadline,
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.bgSurface,
+                    color: Theme.of(context).inputDecorationTheme.fillColor ?? Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.calendar_today_outlined,
-                          color: AppColors.textMuted, size: 20),
+                      Icon(Icons.calendar_today_outlined,
+                          color: AppColors.adaptiveTextMuted(context), size: 20),
                       const SizedBox(width: 12),
                       Text(
                         _deadline != null
                             ? DateFormat('EEEE, dd MMM yyyy', 'id_ID')
                                 .format(_deadline!)
                             : 'Pilih tanggal deadline',
-                        style: AppTextStyles.bodyMedium.copyWith(
+                        style: ts.bodyMedium.copyWith(
                           color: _deadline != null
-                              ? AppColors.textPrimary
-                              : AppColors.textHint,
+                              ? AppColors.adaptiveTextPrimary(context)
+                              : AppColors.adaptiveTextHint(context),
                         ),
                       ),
                       const Spacer(),
                       if (_deadline != null)
                         GestureDetector(
                           onTap: () => setState(() => _deadline = null),
-                          child: const Icon(Icons.close,
-                              color: AppColors.textMuted, size: 18),
+                          child: Icon(Icons.close,
+                              color: AppColors.adaptiveTextMuted(context), size: 18),
                         ),
                     ],
                   ),
@@ -203,16 +191,16 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Reminder Toggle (STEP 18)
+              // Reminder Toggle
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: _setReminder
                       ? AppColors.primary.withValues(alpha: 0.08)
-                      : AppColors.bgSurface,
+                      : Theme.of(context).inputDecorationTheme.fillColor ?? Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: _setReminder ? AppColors.primary : AppColors.border,
+                    color: _setReminder ? AppColors.primary : Theme.of(context).dividerColor,
                   ),
                 ),
                 child: Row(
@@ -221,7 +209,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
                       Icons.notifications_outlined,
                       color: _setReminder
                           ? AppColors.primary
-                          : AppColors.textMuted,
+                          : AppColors.adaptiveTextMuted(context),
                       size: 20,
                     ),
                     const SizedBox(width: 12),
@@ -231,17 +219,17 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
                         children: [
                           Text(
                             'Aktifkan Pengingat',
-                            style: AppTextStyles.labelLarge.copyWith(
+                            style: ts.labelLarge.copyWith(
                               color: _setReminder
                                   ? AppColors.primary
-                                  : AppColors.textPrimary,
+                                  : AppColors.adaptiveTextPrimary(context),
                             ),
                           ),
                           Text(
                             _deadline != null
                                 ? 'Notif 1 jam sebelum deadline'
                                 : 'Pilih deadline terlebih dahulu',
-                            style: AppTextStyles.caption,
+                            style: ts.caption,
                           ),
                         ],
                       ),
@@ -259,7 +247,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
               const SizedBox(height: 20),
 
               // Priority
-              Text('Prioritas', style: AppTextStyles.labelLarge),
+              Text('Prioritas', style: ts.labelLarge),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -292,7 +280,7 @@ class _TaskFormScreenState extends ConsumerState<TaskFormScreen> {
 
               // Status (only for edit)
               if (_isEdit) ...[
-                Text('Status', style: AppTextStyles.labelLarge),
+                Text('Status', style: ts.labelLarge),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -364,10 +352,10 @@ class _PriorityChip extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? color.withValues(alpha: 0.2) : AppColors.bgSurface,
+            color: selected ? color.withValues(alpha: 0.2) : Theme.of(context).inputDecorationTheme.fillColor ?? Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? color : AppColors.border,
+              color: selected ? color : Theme.of(context).dividerColor,
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -375,7 +363,7 @@ class _PriorityChip extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: selected ? color : AppColors.textMuted,
+              color: selected ? color : AppColors.adaptiveTextMuted(context),
               fontSize: 13,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
             ),

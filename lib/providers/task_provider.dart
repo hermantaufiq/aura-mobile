@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/task_model.dart';
+import '../models/notification_model.dart';
 import '../services/task_service.dart';
+import '../services/notification_service.dart';
 import 'auth_provider.dart';
+import 'notification_provider.dart';
 
 // Task State
 class TaskState {
@@ -50,26 +53,28 @@ class TaskState {
 // Task Notifier
 class TaskNotifier extends StateNotifier<TaskState> {
   final TaskService _taskService;
+  final NotificationService _notifService;
   final String userId;
 
-  TaskNotifier(this._taskService, this.userId) : super(const TaskState()) {
+  TaskNotifier(this._taskService, this._notifService, this.userId)
+      : super(const TaskState()) {
     loadTasks();
   }
 
   Future<void> loadTasks({String? status, String? priority}) async {
-    state = state.copyWith(isLoading: true, error: null);
+    if (mounted) state = state.copyWith(isLoading: true, error: null);
     try {
       final tasks = await _taskService.getTasks(
         userId: userId,
         status: status,
         priority: priority,
       );
-      state = state.copyWith(tasks: tasks, isLoading: false);
+      if (!mounted) return;
+      if (mounted) state = state.copyWith(tasks: tasks, isLoading: false);
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'Gagal memuat tugas.',
-      );
+      if (!mounted) return;
+      final errorMessage = _parseErrorMessage(e);
+      if (mounted) state = state.copyWith(isLoading: false, error: errorMessage);
     }
   }
 
@@ -80,6 +85,22 @@ class TaskNotifier extends StateNotifier<TaskState> {
     String priority = 'medium',
     String status = 'pending',
   }) async {
+    // Input validation
+    if (title.trim().isEmpty) {
+      if (mounted) state = state.copyWith(error: 'Judul tugas tidak boleh kosong.');
+      return false;
+    }
+
+    const validPriorities = ['low', 'medium', 'high'];
+    if (!validPriorities.contains(priority)) {
+      if (mounted) {
+        state = state.copyWith(
+          error: 'Priority harus salah satu dari: low, medium, atau high.',
+        );
+      }
+      return false;
+    }
+
     try {
       final task = await _taskService.createTask(
         userId: userId,
@@ -89,10 +110,21 @@ class TaskNotifier extends StateNotifier<TaskState> {
         priority: priority,
         status: status,
       );
-      state = state.copyWith(tasks: [task, ...state.tasks]);
+      if (mounted) state = state.copyWith(tasks: [task, ...state.tasks]);
+
+      // Auto-create deadline reminder notifications
+      if (deadline != null) {
+        _scheduleDeadlineNotifications(
+          taskId: task.id,
+          taskTitle: title,
+          deadline: deadline,
+        );
+      }
+
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal membuat tugas.');
+      final errorMessage = _parseErrorMessage(e);
+      if (mounted) state = state.copyWith(error: errorMessage);
       return false;
     }
   }
@@ -105,6 +137,24 @@ class TaskNotifier extends StateNotifier<TaskState> {
     String? priority,
     String? status,
   }) async {
+    // Input validation
+    if (title != null && title.trim().isEmpty) {
+      if (mounted) state = state.copyWith(error: 'Judul tugas tidak boleh kosong.');
+      return false;
+    }
+
+    if (priority != null) {
+      const validPriorities = ['low', 'medium', 'high'];
+      if (!validPriorities.contains(priority)) {
+        if (mounted) {
+          state = state.copyWith(
+            error: 'Priority harus salah satu dari: low, medium, atau high.',
+          );
+        }
+        return false;
+      }
+    }
+
     try {
       final updated = await _taskService.updateTask(
         taskId: taskId,
@@ -114,11 +164,33 @@ class TaskNotifier extends StateNotifier<TaskState> {
         priority: priority,
         status: status,
       );
-      final tasks = state.tasks.map((t) => t.id == taskId ? updated : t).toList();
-      state = state.copyWith(tasks: tasks);
+      final tasks =
+          state.tasks.map((t) => t.id == taskId ? updated : t).toList();
+      if (mounted) state = state.copyWith(tasks: tasks);
+
+      // Reschedule deadline notifications if deadline changed
+      if (deadline != null && title != null) {
+        _scheduleDeadlineNotifications(
+          taskId: taskId,
+          taskTitle: title,
+          deadline: deadline,
+        );
+      }
+
+      // Trigger completion notification if status changed to done
+      if (status == 'done') {
+        final taskTitle = title ??
+            state.tasks
+                .firstWhere((t) => t.id == taskId,
+                    orElse: () => updated)
+                .title;
+        _createCompletionNotification(taskTitle);
+      }
+
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal mengupdate tugas.');
+      final errorMessage = _parseErrorMessage(e);
+      if (mounted) state = state.copyWith(error: errorMessage);
       return false;
     }
   }
@@ -132,10 +204,19 @@ class TaskNotifier extends StateNotifier<TaskState> {
         taskId: taskId,
         status: status,
       );
-      final tasks = state.tasks.map((t) => t.id == taskId ? updated : t).toList();
-      state = state.copyWith(tasks: tasks);
+      final tasks =
+          state.tasks.map((t) => t.id == taskId ? updated : t).toList();
+      if (mounted) state = state.copyWith(tasks: tasks);
+
+      // Create completion notification when task is done
+      if (status == 'done') {
+        _createCompletionNotification(updated.title);
+      }
+
       return true;
     } catch (e) {
+      final errorMessage = _parseErrorMessage(e);
+      if (mounted) state = state.copyWith(error: errorMessage);
       return false;
     }
   }
@@ -144,12 +225,91 @@ class TaskNotifier extends StateNotifier<TaskState> {
     try {
       await _taskService.deleteTask(taskId);
       final tasks = state.tasks.where((t) => t.id != taskId).toList();
-      state = state.copyWith(tasks: tasks);
+      if (mounted) state = state.copyWith(tasks: tasks);
       return true;
     } catch (e) {
-      state = state.copyWith(error: 'Gagal menghapus tugas.');
+      final errorMessage = _parseErrorMessage(e);
+      if (mounted) state = state.copyWith(error: errorMessage);
       return false;
     }
+  }
+
+  // ── Private error handler ───────────────────────────────────────────────
+  String _parseErrorMessage(dynamic error) {
+    final errorStr = error.toString();
+
+    if (errorStr.contains('403')) {
+      return 'Anda tidak memiliki akses. Silakan login ulang.';
+    } else if (errorStr.contains('409')) {
+      return 'Data sudah diubah oleh pengguna lain. Silakan refresh.';
+    } else if (errorStr.contains('500')) {
+      return 'Server error. Coba lagi nanti.';
+    } else if (errorStr.contains('401')) {
+      return 'Sesi Anda telah berakhir. Silakan login kembali.';
+    } else if (errorStr.contains('404')) {
+      return 'Data tidak ditemukan.';
+    }
+
+    return 'Gagal memproses permintaan.';
+  }
+
+  // ── Private notification helpers ─────────────────────────────────────────
+
+  void _scheduleDeadlineNotifications({
+    required String taskId,
+    required String taskTitle,
+    required DateTime deadline,
+  }) {
+    final now = DateTime.now();
+    final daysLeft = deadline.difference(now).inDays;
+
+    // Only schedule if deadline is in the future
+    if (daysLeft < 0) return;
+
+    // Determine priority based on days left
+    NotificationPriority priority;
+    String title;
+    String message;
+
+    if (daysLeft == 0) {
+      title = 'Deadline Hari Ini! 🚨';
+      message = 'Tugas "$taskTitle" harus diselesaikan hari ini!';
+      priority = NotificationPriority.urgent;
+    } else if (daysLeft == 1) {
+      title = 'Deadline Besok! ⏰';
+      message = 'Tugas "$taskTitle" akan berakhir besok. Segera selesaikan!';
+      priority = NotificationPriority.urgent;
+    } else if (daysLeft <= 3) {
+      title = 'Deadline $daysLeft Hari Lagi ⏰';
+      message = 'Tugas "$taskTitle" akan berakhir dalam $daysLeft hari.';
+      priority = NotificationPriority.high;
+    } else if (daysLeft <= 7) {
+      title = 'Reminder Deadline';
+      message = 'Tugas "$taskTitle" akan berakhir dalam $daysLeft hari.';
+      priority = NotificationPriority.medium;
+    } else {
+      return; // Don't notify for deadlines more than 7 days away on create
+    }
+
+    _notifService.createNotification(
+      userId: userId,
+      title: title,
+      message: message,
+      type: NotificationType.taskDeadline,
+      priority: priority,
+      data: {'action': 'view_task', 'taskId': taskId},
+    );
+  }
+
+  void _createCompletionNotification(String taskTitle) {
+    _notifService.createNotification(
+      userId: userId,
+      title: 'Tugas Selesai! 🎉',
+      message: 'Kerja bagus! Tugas "$taskTitle" telah berhasil diselesaikan.',
+      type: NotificationType.taskCompleted,
+      priority: NotificationPriority.low,
+      data: {'action': 'celebrate'},
+    );
   }
 }
 
@@ -159,7 +319,11 @@ final taskServiceProvider = Provider<TaskService>((ref) => TaskService());
 final taskProvider =
     StateNotifierProvider<TaskNotifier, TaskState>((ref) {
   final userId = ref.watch(currentUserProvider)?.id ?? '';
-  return TaskNotifier(ref.read(taskServiceProvider), userId);
+  return TaskNotifier(
+    ref.read(taskServiceProvider),
+    ref.read(notificationServiceProvider),
+    userId,
+  );
 });
 
 // Task stats provider

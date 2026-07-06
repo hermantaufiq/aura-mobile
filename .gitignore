@@ -43,3 +43,23 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Environment Variables
+.env
+
+# PocketBase data
+pb_data/
+
+# Kiro IDE
+.kiro/
+
+# Database PocketBase (berisi data sensitif, JANGAN diupload ke GitHub)
+pb_data/
+
+# File executables
+pocketbase.exe
+
+# File test sementara
+test_revenuecat.dart
+test/curl_test*.ps1
+analyze_report.txt

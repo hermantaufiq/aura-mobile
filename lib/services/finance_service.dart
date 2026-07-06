@@ -28,6 +28,7 @@ class FinanceService {
       filter: filter,
       sort: '-date',
       perPage: 500,
+      headers: PocketBaseService.instance.authHeaders(),
     );
 
     return result.items
@@ -37,8 +38,10 @@ class FinanceService {
 
   // Get single finance record
   Future<FinanceModel> getFinance(String financeId) async {
-    final record =
-        await _pb.collection(AppConstants.colFinances).getOne(financeId);
+    final record = await _pb.collection(AppConstants.colFinances).getOne(
+      financeId,
+      headers: PocketBaseService.instance.authHeaders(),
+    );
     return FinanceModel.fromJson({...record.toJson(), ...record.data});
   }
 
@@ -60,6 +63,7 @@ class FinanceService {
         'note': note,
         'date': (date ?? DateTime.now()).toIso8601String(),
       },
+      headers: PocketBaseService.instance.authHeaders(),
     );
     return FinanceModel.fromJson({...record.toJson(), ...record.data});
   }
@@ -80,16 +84,21 @@ class FinanceService {
     if (note != null) body['note'] = note;
     if (date != null) body['date'] = date.toIso8601String();
 
-    final record = await _pb
-        .collection(AppConstants.colFinances)
-        .update(financeId, body: body);
+    final record = await _pb.collection(AppConstants.colFinances).update(
+      financeId,
+      body: body,
+      headers: PocketBaseService.instance.authHeaders(),
+    );
 
     return FinanceModel.fromJson({...record.toJson(), ...record.data});
   }
 
   // Delete finance record
   Future<void> deleteFinance(String financeId) async {
-    await _pb.collection(AppConstants.colFinances).delete(financeId);
+    await _pb.collection(AppConstants.colFinances).delete(
+      financeId,
+      headers: PocketBaseService.instance.authHeaders(),
+    );
   }
 
   // Get monthly summary

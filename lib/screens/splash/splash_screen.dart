@@ -39,8 +39,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     _controller.forward();
 
-    Future.delayed(const Duration(milliseconds: 2800), () {
-      _navigate();
+    Future.wait([
+      Future.delayed(const Duration(milliseconds: 1500)),
+      ref.read(authStateProvider.notifier).waitForInit(),
+    ]).then((_) {
+      if (mounted) _navigate();
     });
   }
 
@@ -64,15 +67,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF0A0A0F),
-              Color(0xFF1A0A2E),
-              Color(0xFF0A0A0F),
-            ],
+            colors: Theme.of(context).brightness == Brightness.dark
+              ? const [
+                  Color(0xFF0A0A0F),
+                  Color(0xFF1A0A2E),
+                  Color(0xFF0A0A0F),
+                ]
+              : const [
+                  Color(0xFFF5F5F7),
+                  Color(0xFFFFFFFF),
+                  Color(0xFFF5F5F7),
+                ],
           ),
         ),
         child: Stack(
@@ -174,12 +183,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
                           Transform.translate(
                             offset: Offset(0, _slideAnim.value),
-                            child: const Text(
+                            child: Text(
                               'AI Personal Assistant',
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w400,
-                                color: AppColors.textSecondary,
+                                color: AppColors.adaptiveTextSecondary(context),
                                 letterSpacing: 2,
                               ),
                             ),
@@ -191,7 +200,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                           SizedBox(
                             width: 120,
                             child: LinearProgressIndicator(
-                              backgroundColor: AppColors.bgElevated,
+                              backgroundColor: AppColors.adaptiveBgElevated(context),
                               valueColor: const AlwaysStoppedAnimation<Color>(
                                 AppColors.primary,
                               ),
@@ -215,12 +224,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 animation: _controller,
                 builder: (context, child) => Opacity(
                   opacity: _fadeAnim.value,
-                  child: const Text(
+                  child: Text(
                     'v1.0.0',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textMuted,
+                      color: AppColors.adaptiveTextMuted(context),
                     ),
                   ),
                 ),
