@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:ui';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
@@ -60,9 +61,47 @@ class HomeScreen extends ConsumerWidget {
     // Trigger sync from existing data once per session
     ref.watch(notificationSyncProvider);
 
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
+      body: Stack(
+        children: [
+          // Background Gradient Orbs
+          Positioned(
+            top: -150,
+            left: -100,
+            child: Container(
+              width: 400,
+              height: 400,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.15),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 200,
+            right: -150,
+            child: Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.secondary.withValues(alpha: 0.1),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
         child: RefreshIndicator(
           color: AppColors.primary,
           backgroundColor: Theme.of(context).cardColor,
@@ -330,6 +369,8 @@ class HomeScreen extends ConsumerWidget {
           ),
         ),
       ),
+        ],
+      ),
     );
   }
 }
@@ -351,57 +392,86 @@ class _BalanceCard extends StatelessWidget {
     final fmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final month = DateFormat('MMMM yyyy', 'id_ID').format(DateTime.now());
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primary, AppColors.secondary],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Saldo Bulan Ini',
-              style: ts.bodySmall.copyWith(color: Colors.white70)),
-          Text(month,
-              style: ts.labelSmall.copyWith(color: Colors.white54)),
-          const SizedBox(height: 8),
-          Text(
-            fmt.format(balance),
-            style: ts.amount.copyWith(color: Colors.white),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _BalanceItem(
-                  label: 'Pemasukan',
-                  value: fmt.format(totalIncome),
-                  icon: Icons.arrow_upward_rounded,
-                  color: Colors.greenAccent,
-                ),
-              ),
-              Expanded(
-                child: _BalanceItem(
-                  label: 'Pengeluaran',
-                  value: fmt.format(totalExpense),
-                  icon: Icons.arrow_downward_rounded,
-                  color: Colors.redAccent,
-                ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.5),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 24,
+                spreadRadius: 0,
               ),
             ],
           ),
-        ],
+          child: Stack(
+            children: [
+              // Subtle gradient overlay for premium feel
+              Positioned(
+                top: -50,
+                right: -50,
+                child: Container(
+                  width: 150,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        AppColors.primary.withValues(alpha: 0.2),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Saldo Bulan Ini',
+                      style: ts.bodySmall.copyWith(color: isDark ? Colors.white70 : Colors.black54)),
+                  Text(month,
+                      style: ts.labelSmall.copyWith(color: isDark ? Colors.white54 : Colors.black45)),
+                  const SizedBox(height: 8),
+                  Text(
+                    fmt.format(balance),
+                    style: ts.amount.copyWith(color: isDark ? Colors.white : Colors.black87),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _BalanceItem(
+                          label: 'Pemasukan',
+                          value: fmt.format(totalIncome),
+                          icon: Icons.arrow_upward_rounded,
+                          color: Colors.greenAccent,
+                        ),
+                      ),
+                      Expanded(
+                        child: _BalanceItem(
+                          label: 'Pengeluaran',
+                          value: fmt.format(totalExpense),
+                          icon: Icons.arrow_downward_rounded,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -438,10 +508,10 @@ class _BalanceItem extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: ts.caption.copyWith(color: Colors.white70)),
+                style: ts.caption.copyWith(color: AppColors.adaptiveTextSecondary(context))),
             Text(value,
                 style: ts.labelMedium.copyWith(
-                    color: Colors.white, fontWeight: FontWeight.w600)),
+                    color: AppColors.adaptiveTextPrimary(context), fontWeight: FontWeight.w600)),
           ],
         ),
       ],
@@ -467,25 +537,42 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ts = AppTextStyles.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 6),
-            Text(value,
-                style: ts.headlineMedium.copyWith(color: color)),
-            Text(label,
-                style: ts.caption,
-                textAlign: TextAlign.center),
-          ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 12,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Icon(icon, color: color, size: 22),
+                const SizedBox(height: 6),
+                Text(value,
+                    style: ts.headlineMedium.copyWith(color: color)),
+                Text(label,
+                    style: ts.caption,
+                    textAlign: TextAlign.center),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -508,25 +595,50 @@ class _QuickAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ts = AppTextStyles.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: ts.caption.copyWith(color: color, fontSize: 10),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 12,
+                  spreadRadius: 0,
+                ),
+              ],
             ),
-          ],
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: color.withValues(alpha: 0.3)),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  label,
+                  style: ts.caption.copyWith(fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -557,17 +669,32 @@ class _TaskTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ts = AppTextStyles.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        child: Row(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 12,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Row(
           children: [
             Container(
               width: 4,
@@ -595,7 +722,9 @@ class _TaskTile extends StatelessWidget {
                     fontWeight: FontWeight.w700),
               ),
             ),
-          ],
+            ],
+          ),
+        ),
         ),
       ),
     );
@@ -620,19 +749,34 @@ class _FinanceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ts = AppTextStyles.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final fmt = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
     final color = isIncome ? AppColors.success : AppColors.error;
+
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        child: Row(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 12,
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
@@ -664,6 +808,8 @@ class _FinanceTile extends StatelessWidget {
               style: ts.labelLarge.copyWith(color: color),
             ),
           ],
+            ),
+          ),
         ),
       ),
     );

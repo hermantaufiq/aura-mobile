@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../core/constants/app_colors.dart';
@@ -8,6 +9,7 @@ import '../../core/constants/app_text_styles.dart';
 import '../../models/finance_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/finance_provider.dart';
+import '../../services/finance_export_service.dart';
 import '../../widgets/common/aura_snackbar.dart';
 
 class FinanceScreen extends ConsumerStatefulWidget {
@@ -40,11 +42,28 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
     final fmt = NumberFormat.currency(
         locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text('Keuangan', style: ts.headlineMedium),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, color: AppColors.primary),
+            onPressed: () async {
+              try {
+                final user = ref.read(currentUserProvider);
+                if (user == null) return;
+                
+                AuraSnackbar.show(context, 'Sedang menyiapkan PDF...', icon: Icons.info_outline);
+                await FinanceExportService.exportToPdf(state.finances, user.name);
+              } catch (e) {
+                if (!context.mounted) return;
+                AuraSnackbar.error(context, 'Gagal membuat PDF: $e');
+              }
+            },
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: TextButton.icon(
@@ -56,105 +75,146 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Month Selector
-          _MonthSelector(
-            month: state.selectedMonth,
-            year: state.selectedYear,
-            onChanged: (m, y) =>
-                ref.read(financeProvider.notifier).changeMonth(m, y),
-          ),
-
-          // Summary Cards
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _SummaryCard(
-                    label: 'Pemasukan',
-                    amount: fmt.format(state.totalIncome),
-                    color: AppColors.income,
-                    icon: Icons.arrow_upward_rounded,
-                  ),
+          // Background Gradient Orbs
+          Positioned(
+            top: -150,
+            left: -100,
+            child: Container(
+              width: 400,
+              height: 400,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.income.withValues(alpha: 0.1),
+                    Colors.transparent,
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _SummaryCard(
-                    label: 'Pengeluaran',
-                    amount: fmt.format(state.totalExpense),
-                    color: AppColors.expense,
-                    icon: Icons.arrow_downward_rounded,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _SummaryCard(
-                    label: 'Saldo',
-                    amount: fmt.format(state.balance),
-                    color: state.balance >= 0
-                        ? AppColors.success
-                        : AppColors.error,
-                    icon: Icons.account_balance_outlined,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Tab Bar
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Theme.of(context).dividerColor),
-            ),
-            child: TabBar(
-              controller: _tabController,
-              indicator: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(8),
               ),
-              labelColor: Colors.white,
-              unselectedLabelColor: AppColors.textMuted,
-              labelStyle:
-                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              dividerColor: Colors.transparent,
-              tabs: const [
-                Tab(text: 'Semua'),
-                Tab(text: 'Masuk'),
-                Tab(text: 'Keluar'),
-                Tab(text: '📊 Grafik'),
-              ],
             ),
           ),
-
-          // Transaction List
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _TransactionList(
-                  transactions: state.finances,
-                  isLoading: state.isLoading,
+          Positioned(
+            bottom: -150,
+            right: -100,
+            child: Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.expense.withValues(alpha: 0.1),
+                    Colors.transparent,
+                  ],
                 ),
-                _TransactionList(
-                  transactions: state.incomeList,
-                  isLoading: state.isLoading,
-                ),
-                _TransactionList(
-                  transactions: state.expenseList,
-                  isLoading: state.isLoading,
-                ),
-                _FinanceCharts(
-                  expenseList: state.expenseList,
-                  totalIncome: state.totalIncome,
-                  totalExpense: state.totalExpense,
-                ),
-              ],
+              ),
             ),
+          ),
+          Column(
+            children: [
+              // Month Selector
+              _MonthSelector(
+                month: state.selectedMonth,
+                year: state.selectedYear,
+                onChanged: (m, y) =>
+                    ref.read(financeProvider.notifier).changeMonth(m, y),
+              ),
+
+              // Summary Cards
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _SummaryCard(
+                        label: 'Pemasukan',
+                        amount: fmt.format(state.totalIncome),
+                        color: AppColors.income,
+                        icon: Icons.arrow_upward_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _SummaryCard(
+                        label: 'Pengeluaran',
+                        amount: fmt.format(state.totalExpense),
+                        color: AppColors.expense,
+                        icon: Icons.arrow_downward_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _SummaryCard(
+                        label: 'Saldo',
+                        amount: fmt.format(state.balance),
+                        color: state.balance >= 0
+                            ? AppColors.success
+                            : AppColors.error,
+                        icon: Icons.account_balance_outlined,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Tab Bar
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  indicator: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  labelColor: Colors.white,
+                  unselectedLabelColor: AppColors.adaptiveTextMuted(context),
+                  labelStyle:
+                      const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  dividerColor: Colors.transparent,
+                  tabs: const [
+                    Tab(text: 'Semua'),
+                    Tab(text: 'Masuk'),
+                    Tab(text: 'Keluar'),
+                    Tab(text: '📊 Grafik'),
+                  ],
+                ),
+              ),
+
+              // Transaction List
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _TransactionList(
+                      transactions: state.finances,
+                      isLoading: state.isLoading,
+                    ),
+                    _TransactionList(
+                      transactions: state.incomeList,
+                      isLoading: state.isLoading,
+                    ),
+                    _TransactionList(
+                      transactions: state.expenseList,
+                      isLoading: state.isLoading,
+                    ),
+                    _FinanceCharts(
+                      expenseList: state.expenseList,
+                      totalIncome: state.totalIncome,
+                      totalExpense: state.totalExpense,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -227,13 +287,27 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10,
+              ),
+            ],
+          ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -257,6 +331,8 @@ class _SummaryCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -308,13 +384,21 @@ class _TransactionList extends ConsumerWidget {
         itemBuilder: (context, i) {
           final f = transactions[i];
           final color = f.isIncome ? AppColors.income : AppColors.expense;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Theme.of(context).dividerColor),
-            ),
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+                  ),
+                ),
             child: ListTile(
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -348,6 +432,8 @@ class _TransactionList extends ConsumerWidget {
               ),
               onTap: () => context.go('/finance/edit/${f.id}'),
               onLongPress: () => _deleteDialog(context, ref, f.id),
+            ),
+              ),
             ),
           );
         },

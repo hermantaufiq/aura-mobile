@@ -19,10 +19,14 @@ import '../screens/premium/premium_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/edit_profile_screen.dart';
 import '../screens/admin/admin_login_screen.dart';
+import '../screens/admin/admin_shell.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
+import '../screens/admin/admin_users_screen.dart';
+import '../screens/admin/admin_settings_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
+final _adminShellNavigatorKey = GlobalKey<NavigatorState>();
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // ── FIX: Buat router SEKALI, pakai refresh() saat auth berubah ──────────
@@ -34,7 +38,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     debugLogDiagnostics: false,
     redirect: (context, state) {
-      // Baca state saat redirect dievaluasi (bukan saat router dibuat)
       final authState = ref.read(authStateProvider);
       final isLoggedIn = authState.isLoggedIn;
       final isOnSplash = state.matchedLocation == '/splash';
@@ -43,8 +46,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isOnAdminApp = state.matchedLocation.startsWith('/admin') && !isOnAdminAuth;
       final role = authState.user?.role;
 
+      // Still loading auth — send to splash to wait
+      if (authState.isLoading) {
+        if (isOnSplash) return null;
+        return '/splash';
+      }
+
+      // Splash screen: don't interfere (SplashScreen handles nav itself)
       if (isOnSplash) return null;
-      if (authState.isLoading) return null;
 
       // Handle unauthenticated users
       if (!isLoggedIn) {
@@ -57,10 +66,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Handle authenticated users
       if (role == 'admin') {
         if (isOnAuth || isOnAdminAuth) return '/admin/dashboard';
+        // If admin is on non-admin, non-splash page — redirect to admin dashboard
         if (!isOnAdminApp) return '/admin/dashboard';
         return null;
       } else {
-        if (isOnAdminAuth || isOnAdminApp) return '/auth/login';
+        // If a normal user explicitly visits /admin/login, let them see it so they can login as admin!
+        if (isOnAdminAuth) return null;
+        
+        if (isOnAdminApp) return '/auth/login';
         if (isOnAuth) return '/home';
         return null;
       }
@@ -96,10 +109,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'admin-login',
         builder: (context, state) => const AdminLoginScreen(),
       ),
-      GoRoute(
-        path: '/admin/dashboard',
-        name: 'admin-dashboard',
-        builder: (context, state) => const AdminDashboardScreen(),
+
+      // Admin Shell
+      ShellRoute(
+        navigatorKey: _adminShellNavigatorKey,
+        builder: (context, state, child) {
+          return AdminShell(child: child);
+        },
+        routes: [
+          GoRoute(
+            path: '/admin/dashboard',
+            name: 'admin-dashboard',
+            builder: (context, state) => const AdminDashboardScreen(),
+          ),
+          GoRoute(
+            path: '/admin/users',
+            name: 'admin-users',
+            builder: (context, state) => const AdminUsersScreen(),
+          ),
+          GoRoute(
+            path: '/admin/settings',
+            name: 'admin-settings',
+            builder: (context, state) => const AdminSettingsScreen(),
+          ),
+        ],
       ),
 
       // Main Shell with Bottom Navigation

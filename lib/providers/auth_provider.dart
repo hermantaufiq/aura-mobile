@@ -99,12 +99,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> _syncSessionInBackground() async {
+    // Simpan role awal sebelum sync agar tidak di-override oleh server
+    final initialRole = state.user?.role;
+
     try {
       final user = await _authService.syncUserFromServer();
       if (user == null) return;
       await _authService.resetAiCountIfNeeded(user: user);
       await PocketBaseService.instance.markSessionActive();
-      state = AuthState(user: user, isLoggedIn: true);
+
+      // Kalau server mengembalikan role yang lebih rendah dari cached role (misal
+      // 'admin' → '' atau 'user'), gunakan role dari cache agar admin tidak
+      // ter-redirect ke halaman pengguna.
+      final resolvedRole = (initialRole == 'admin' && user.role != 'admin')
+          ? initialRole!
+          : user.role;
+
+      final resolvedUser = resolvedRole != user.role
+          ? user.copyWith(role: resolvedRole)
+          : user;
+
+      // Juga update cache agar konsisten untuk reload berikutnya
+      if (resolvedRole != user.role) {
+        await PocketBaseService.instance.saveUserCache(resolvedUser);
+      }
+
+      state = AuthState(user: resolvedUser, isLoggedIn: true);
     } catch (_) {}
   }
 
@@ -116,7 +136,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final user = await _authService.login(email: email, password: password);
       state = AuthState(user: user, isLoggedIn: true);
-      
+
+      // Kirim notifikasi selamat datang kembali (fire-and-forget)
+      _sendLoginGreeting(userId: user.id, name: user.name);
+
       return true;
     } on Exception catch (e) {
       final msg = e.toString();
@@ -157,13 +180,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
             ? 'Akses ditolak: Anda bukan admin.' 
             : 'Email atau password salah.',
       );
-      throw e;
+      rethrow;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         error: 'Terjadi kesalahan. Coba lagi.',
       );
-      throw e;
+      rethrow;
     }
   }
 
@@ -220,6 +243,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       return false;
     }
+  }
+
+  /// Kirim notifikasi selamat datang kembali saat login (fire-and-forget)
+  void _sendLoginGreeting({
+    required String userId,
+    required String name,
+  }) {
+    final svc = NotificationService();
+    final firstName = name.split(' ').first;
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Selamat pagi'
+        : hour < 15
+            ? 'Selamat siang'
+            : hour < 18
+                ? 'Selamat sore'
+                : 'Selamat malam';
+
+    svc.createNotification(
+      userId: userId,
+      title: '👋 $greeting, $firstName!',
+      message:
+          '$greeting $firstName! Kamu sudah login ke AURA. '
+          'Yuk lihat tugas harianmu atau tanya AURA AI untuk membantu produktivitasmu hari ini! 💪',
+      type: NotificationType.general,
+      priority: NotificationPriority.medium,
+    );
   }
 
   /// Kirim welcome notification ke pengguna baru (fire-and-forget)

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -16,190 +17,371 @@ class ProfileScreen extends ConsumerWidget {
     final user = ref.watch(currentUserProvider);
     final isPremium = ref.watch(isPremiumProvider);
     final ts = AppTextStyles.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (user == null) return const SizedBox.shrink();
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [AppColors.primary.withValues(alpha: 0.15), Colors.transparent],
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Profil', style: ts.headlineLarge),
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
-                          onPressed: () => context.go('/profile/edit'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    UserAvatar(
-                      user: user,
-                      radius: 44,
-                      showPremiumBadge: isPremium,
-                      heroTag: 'user-avatar-${user.id}',
-                    ),
-                    const SizedBox(height: 12),
-                    Text(user.name, style: ts.headlineMedium),
-                    Text(user.email, style: ts.bodySmall),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                      decoration: BoxDecoration(
-                        gradient: isPremium ? AppColors.premiumGradient : null,
-                        color: isPremium ? null : AppColors.adaptiveBgElevated(context),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        isPremium ? '⭐ Premium' : '🆓 Free Plan',
-                        style: ts.labelMedium.copyWith(
-                          color: isPremium ? Colors.white : AppColors.adaptiveTextSecondary(context),
-                        ),
-                      ),
-                    ),
-                    if (isPremium && user.premiumExpiredAt != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Aktif hingga ${DateFormat('dd MMM yyyy', 'id_ID').format(user.premiumExpiredAt!)}',
-                        style: ts.caption.copyWith(color: AppColors.gold),
-                      ),
-                    ],
+      body: Stack(
+        children: [
+          // Background Gradient Orbs
+          Positioned(
+            top: -100,
+            left: -80,
+            child: Container(
+              width: 320,
+              height: 320,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.15),
+                    Colors.transparent,
                   ],
                 ),
               ),
+            ),
+          ),
+          Positioned(
+            top: 120,
+            right: -100,
+            child: Container(
+              width: 280,
+              height: 280,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.secondary.withValues(alpha: 0.12),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -80,
+            left: 40,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.accent.withValues(alpha: 0.1),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
 
-              // AI Usage Bar (Free users)
-              if (!isPremium)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Theme.of(context).dividerColor),
+          // Content
+          SafeArea(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.black.withValues(alpha: 0.25)
+                                : Colors.white.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : Colors.white.withValues(alpha: 0.6),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.06),
+                                blurRadius: 30,
+                                spreadRadius: 0,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Profil', style: ts.headlineLarge),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: IconButton(
+                                      icon: const Icon(Icons.edit_outlined,
+                                          color: AppColors.primary, size: 20),
+                                      onPressed: () => context.go('/profile/edit'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              // Avatar with glow
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: 0.3),
+                                      blurRadius: 20,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: UserAvatar(
+                                  user: user,
+                                  radius: 44,
+                                  showPremiumBadge: isPremium,
+                                  heroTag: 'user-avatar-${user.id}',
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              Text(user.name,
+                                  style: ts.headlineMedium),
+                              const SizedBox(height: 4),
+                              Text(user.email,
+                                  style: ts.bodySmall.copyWith(
+                                      color: AppColors.adaptiveTextSecondary(context))),
+                              const SizedBox(height: 12),
+                              // Badge
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 6),
+                                decoration: BoxDecoration(
+                                  gradient: isPremium
+                                      ? AppColors.premiumGradient
+                                      : null,
+                                  color: isPremium
+                                      ? null
+                                      : (isDark
+                                          ? Colors.white.withValues(alpha: 0.08)
+                                          : Colors.black.withValues(alpha: 0.06)),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isPremium
+                                        ? Colors.transparent
+                                        : (isDark
+                                            ? Colors.white.withValues(alpha: 0.1)
+                                            : Colors.black.withValues(alpha: 0.08)),
+                                  ),
+                                ),
+                                child: Text(
+                                  isPremium ? '⭐ Premium Member' : '🆓 Free Plan',
+                                  style: ts.labelMedium.copyWith(
+                                    color: isPremium
+                                        ? Colors.white
+                                        : AppColors.adaptiveTextSecondary(context),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              if (isPremium && user.premiumExpiredAt != null) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.verified_rounded,
+                                        color: AppColors.gold, size: 14),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Aktif hingga ${DateFormat('dd MMM yyyy', 'id_ID').format(user.premiumExpiredAt!)}',
+                                      style: ts.caption.copyWith(color: AppColors.gold),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // AI Usage Bar (Free users)
+                  if (!isPremium)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.black.withValues(alpha: 0.2)
+                                  : Colors.white.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.05)
+                                    : Colors.white.withValues(alpha: 0.5),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.auto_awesome,
+                                            color: AppColors.primary, size: 16),
+                                        const SizedBox(width: 6),
+                                        Text('AI Chat Hari Ini', style: ts.labelLarge),
+                                      ],
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text('${user.aiDailyCount}/5',
+                                          style: ts.labelMedium.copyWith(
+                                              color: AppColors.primary,
+                                              fontWeight: FontWeight.w700)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: LinearProgressIndicator(
+                                    value: user.aiDailyCount / 5,
+                                    backgroundColor: isDark
+                                        ? Colors.white.withValues(alpha: 0.08)
+                                        : Colors.black.withValues(alpha: 0.06),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      user.aiDailyCount >= 5
+                                          ? AppColors.error
+                                          : AppColors.primary,
+                                    ),
+                                    minHeight: 8,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                GestureDetector(
+                                  onTap: () => context.go('/premium'),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        'Upgrade ke Premium untuk unlimited',
+                                        style: ts.caption
+                                            .copyWith(color: AppColors.primary),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.arrow_forward_rounded,
+                                          color: AppColors.primary, size: 12),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  const SizedBox(height: 16),
+
+                  // Menu Sections
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('AI Chat Hari Ini', style: ts.labelLarge),
-                            Text('${user.aiDailyCount}/5',
-                                style: ts.labelLarge.copyWith(color: AppColors.primary)),
+                        _MenuSection(
+                          title: 'Akun',
+                          isDark: isDark,
+                          items: [
+                            _MenuItem(
+                              icon: Icons.person_outline_rounded,
+                              label: 'Edit Profil',
+                              color: AppColors.primary,
+                              onTap: () => context.go('/profile/edit'),
+                            ),
+                            _MenuItem(
+                              icon: Icons.star_outline_rounded,
+                              label: isPremium
+                                  ? 'Status Premium'
+                                  : 'Upgrade Premium',
+                              color: AppColors.gold,
+                              onTap: () => context.go('/premium'),
+                            ),
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: user.aiDailyCount / 5,
-                            backgroundColor: AppColors.adaptiveBgElevated(context),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              user.aiDailyCount >= 5 ? AppColors.error : AppColors.primary,
+                        const SizedBox(height: 14),
+                        _MenuSection(
+                          title: 'Pengaturan',
+                          isDark: isDark,
+                          items: [_ThemeToggle(isDark: isDark)],
+                        ),
+                        const SizedBox(height: 14),
+                        _MenuSection(
+                          title: 'Tentang',
+                          isDark: isDark,
+                          items: [
+                            _MenuItem(
+                              icon: Icons.info_outline_rounded,
+                              label: 'Tentang AURA',
+                              color: AppColors.info,
+                              onTap: () => _showAbout(context),
                             ),
-                            minHeight: 6,
-                          ),
+                            _MenuItem(
+                              icon: Icons.shield_outlined,
+                              label: 'Privasi & Keamanan',
+                              color: AppColors.success,
+                              onTap: () {},
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: () => context.go('/premium'),
-                          child: Text(
-                            'Upgrade untuk unlimited →',
-                            style: ts.caption.copyWith(color: AppColors.primary),
-                          ),
+                        const SizedBox(height: 14),
+                        _MenuSection(
+                          title: 'Sesi',
+                          isDark: isDark,
+                          items: [
+                            _MenuItem(
+                              icon: Icons.logout_rounded,
+                              label: 'Keluar',
+                              color: AppColors.error,
+                              onTap: () => _logout(context, ref),
+                              isDestructive: true,
+                            ),
+                          ],
                         ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'AURA v1.0.0 • Dibuat untuk Skripsi',
+                          style: ts.caption.copyWith(
+                              color: AppColors.adaptiveTextMuted(context)),
+                        ),
+                        const SizedBox(height: 24),
                       ],
                     ),
                   ),
-                ),
-
-              const SizedBox(height: 16),
-
-              // Menu
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    _MenuSection(
-                      title: 'Akun',
-                      items: [
-                        _MenuItem(
-                          icon: Icons.person_outline_rounded,
-                          label: 'Edit Profil',
-                          color: AppColors.primary,
-                          onTap: () => context.go('/profile/edit'),
-                        ),
-                        _MenuItem(
-                          icon: Icons.star_outline_rounded,
-                          label: isPremium ? 'Status Premium' : 'Upgrade Premium',
-                          color: AppColors.gold,
-                          onTap: () => context.go('/premium'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    const _MenuSection(
-                      title: 'Pengaturan',
-                      items: [_ThemeToggle()],
-                    ),
-                    const SizedBox(height: 16),
-                    _MenuSection(
-                      title: 'Tentang',
-                      items: [
-                        _MenuItem(
-                          icon: Icons.info_outline_rounded,
-                          label: 'Tentang AURA',
-                          color: AppColors.info,
-                          onTap: () => _showAbout(context),
-                        ),
-                        _MenuItem(
-                          icon: Icons.shield_outlined,
-                          label: 'Privasi & Keamanan',
-                          color: AppColors.success,
-                          onTap: () {},
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _MenuSection(
-                      title: 'Sesi',
-                      items: [
-                        _MenuItem(
-                          icon: Icons.logout_rounded,
-                          label: 'Keluar',
-                          color: AppColors.error,
-                          onTap: () => _logout(context, ref),
-                          isDestructive: true,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 30),
-                    Text('AURA v1.0.0 • Dibuat untuk Skripsi',
-                        style: ts.caption),
-                    const SizedBox(height: 20),
-                  ],
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -236,7 +418,9 @@ class ProfileScreen extends ConsumerWidget {
         title: Text('Keluar', style: ts.headlineSmall),
         content: Text('Yakin ingin keluar dari AURA?', style: ts.bodyMedium),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Batal')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal')),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
@@ -255,8 +439,13 @@ class ProfileScreen extends ConsumerWidget {
 class _MenuSection extends StatelessWidget {
   final String title;
   final List items;
+  final bool isDark;
 
-  const _MenuSection({required this.title, required this.items});
+  const _MenuSection({
+    required this.title,
+    required this.items,
+    required this.isDark,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -265,29 +454,56 @@ class _MenuSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(title, style: ts.labelMedium),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).dividerColor),
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text(
+            title,
+            style: ts.labelMedium.copyWith(
+              color: AppColors.adaptiveTextMuted(context),
+              letterSpacing: 0.5,
+            ),
           ),
-          child: Column(
-            children: items.asMap().entries.map((e) {
-              final isLast = e.key == items.length - 1;
-              return Column(
-                children: [
-                  e.value,
-                  if (!isLast)
-                    Divider(
-                        height: 1,
-                        color: Theme.of(context).dividerColor,
-                        indent: 56),
+        ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.2)
+                    : Colors.white.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.white.withValues(alpha: 0.6),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 10,
+                  ),
                 ],
-              );
-            }).toList(),
+              ),
+              child: Column(
+                children: items.asMap().entries.map((e) {
+                  final isLast = e.key == items.length - 1;
+                  return Column(
+                    children: [
+                      e.value,
+                      if (!isLast)
+                        Divider(
+                          height: 1,
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : Colors.black.withValues(alpha: 0.05),
+                          indent: 56,
+                        ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
           ),
         ),
       ],
@@ -329,17 +545,22 @@ class _MenuItem extends StatelessWidget {
           color: isDestructive
               ? AppColors.error
               : AppColors.adaptiveTextPrimary(context),
+          fontWeight: FontWeight.w500,
         ),
       ),
-      trailing: Icon(Icons.arrow_forward_ios_rounded,
-          size: 14, color: AppColors.adaptiveTextMuted(context)),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      trailing: Icon(
+        Icons.arrow_forward_ios_rounded,
+        size: 14,
+        color: AppColors.adaptiveTextMuted(context),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     );
   }
 }
 
 class _ThemeToggle extends ConsumerWidget {
-  const _ThemeToggle();
+  final bool isDark;
+  const _ThemeToggle({required this.isDark});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -361,13 +582,14 @@ class _ThemeToggle extends ConsumerWidget {
       ),
       title: Text(
         isDarkMode ? 'Mode Gelap' : 'Mode Terang',
-        style: ts.bodyMedium,
+        style: ts.bodyMedium.copyWith(fontWeight: FontWeight.w500),
       ),
       trailing: Switch(
         value: isDarkMode,
+        activeThumbColor: AppColors.primary,
         onChanged: (_) => ref.read(themeProvider.notifier).toggleTheme(),
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     );
   }
 }

@@ -51,7 +51,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (!mounted) return;
     final authState = ref.read(authStateProvider);
     if (authState.isLoggedIn) {
-      context.go('/home');
+      final role = authState.user?.role;
+      if (role == 'admin') {
+        context.go('/admin/dashboard');
+      } else {
+        context.go('/home');
+      }
     } else {
       context.go('/auth/login');
     }

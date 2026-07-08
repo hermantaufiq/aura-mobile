@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'app/app_theme.dart';
 import 'app/app_router.dart';
 import 'services/pocketbase_service.dart';
@@ -10,6 +11,7 @@ import 'providers/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  usePathUrlStrategy();
   await dotenv.load(fileName: ".env");
 
   await SystemChrome.setPreferredOrientations([

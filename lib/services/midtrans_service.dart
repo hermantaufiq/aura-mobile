@@ -1,4 +1,3 @@
-import 'package:pocketbase/pocketbase.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:logger/logger.dart';
 import 'pocketbase_service.dart';
@@ -10,11 +9,12 @@ class MidtransService {
   final _logger = Logger();
 
   /// Menghasilkan Snap Checkout URL dari PocketBase backend
-  Future<String?> createCheckoutUrl(String userId) async {
+  Future<String?> createCheckoutUrl(String userId, {String planType = "monthly"}) async {
     try {
       final pb = PocketBaseService.instance.pb;
       final response = await pb.send('/api/midtrans/checkout', method: 'POST', body: {
         'user_id': userId,
+        'plan_type': planType,
       });
 
       if (response.containsKey('redirect_url')) {

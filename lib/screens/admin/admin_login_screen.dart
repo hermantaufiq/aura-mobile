@@ -185,14 +185,6 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                             ),
                           ),
                   ),
-                  const SizedBox(height: 24),
-                  TextButton(
-                    onPressed: () => context.go('/auth/login'),
-                    child: Text(
-                      'Kembali ke Aplikasi Utama',
-                      style: ts.bodyMedium.copyWith(color: AppColors.primary),
-                    ),
-                  ),
                 ],
               ),
             ),

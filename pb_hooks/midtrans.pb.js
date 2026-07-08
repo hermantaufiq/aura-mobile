@@ -35,6 +35,19 @@ routerAdd("POST", "/api/midtrans/checkout", (c) => {
     throw new BadRequestError("user_id is required");
   }
 
+  // Tentukan harga dan nama berdasarkan plan_type
+  let planType = data.plan_type || "monthly"; // default
+  let price = 49000;
+  let name = "AURA Premium 1 Bulan";
+
+  if (planType === "promo") {
+    price = 29000;
+    name = "AURA Premium Promo Pengguna Baru (1 Bulan)";
+  } else if (planType === "yearly") {
+    price = 499000;
+    name = "AURA Premium 1 Tahun";
+  }
+
   try {
     // Cari user di database (PocketBase 0.22.x API)
     let user;
@@ -45,14 +58,14 @@ routerAdd("POST", "/api/midtrans/checkout", (c) => {
       throw new BadRequestError("User tidak ditemukan: " + data.user_id);
     }
     
-    // Buat Order ID unik
-    const orderId = "AURA-PREM-" + user.id + "-" + new Date().getTime();
+    // Buat Order ID unik: AURA-PREM-[userId]-[planType]-[timestamp]
+    const orderId = "AURA-PREM-" + user.id + "-" + planType + "-" + new Date().getTime();
     
     // Siapkan payload untuk Midtrans Snap API
     const payload = {
       "transaction_details": {
         "order_id": orderId,
-        "gross_amount": 29000
+        "gross_amount": price
       },
       "customer_details": {
         "first_name": user.getString("name") || "Pengguna",
@@ -60,10 +73,10 @@ routerAdd("POST", "/api/midtrans/checkout", (c) => {
       },
       "item_details": [
         {
-          "id": "PREMIUM_1M",
-          "price": 29000,
+          "id": "PREMIUM_" + planType.toUpperCase(),
+          "price": price,
           "quantity": 1,
-          "name": "AURA Premium 1 Bulan"
+          "name": name
         }
       ]
     };
@@ -122,11 +135,12 @@ routerAdd("POST", "/api/midtrans/webhook", (c) => {
     return c.json(200, { "status": "ignored" });
   }
 
-  // Ekstrak User ID dari Order ID (AURA-PREM-userId-timestamp)
+  // Ekstrak User ID dan Plan dari Order ID (AURA-PREM-userId-planType-timestamp)
   const parts = orderId.split("-");
-  if (parts.length < 3) return c.json(200, { "status": "invalid_order_id" });
+  if (parts.length < 4) return c.json(200, { "status": "invalid_order_id" });
   
   const userId = parts[2];
+  const planType = parts[3];
 
   // Logika pengecekan status (Success / Settlement)
   if (
@@ -143,9 +157,14 @@ routerAdd("POST", "/api/midtrans/webhook", (c) => {
         
         user.set("isPremium", true);
         
-        // Tambah 30 hari
+        // Tentukan jumlah hari untuk ditambahkan
+        let daysToAdd = 30; // default promo/monthly
+        if (planType === "yearly") {
+          daysToAdd = 365;
+        }
+
         const now = new Date();
-        now.setDate(now.getDate() + 30);
+        now.setDate(now.getDate() + daysToAdd);
         user.set("premiumExpiredAt", now.toISOString().replace("T", " ").substring(0, 19) + "Z");
 
         $app.dao().saveRecord(user);
