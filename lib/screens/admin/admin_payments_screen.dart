@@ -6,7 +6,6 @@ import '../../core/constants/app_text_styles.dart';
 import '../../providers/payment_provider.dart';
 import '../../providers/auth_provider.dart'; // To refresh auth if needed, or upgrade user
 import '../../services/payment_service.dart';
-import '../../services/auth_service.dart';
 import '../../widgets/common/aura_snackbar.dart';
 
 class AdminPaymentsScreen extends ConsumerWidget {
@@ -171,7 +170,7 @@ class AdminPaymentsScreen extends ConsumerWidget {
 
   Future<void> _handleApprove(BuildContext context, WidgetRef ref, String paymentId, String userId) async {
     final confirm = await _showConfirmDialog(context, 'Terima Pembayaran', 'Pastikan uang sudah masuk ke rekening SeaBank Anda. Lanjutkan?');
-    if (confirm != true) return;
+    if (confirm != true || !context.mounted) return;
 
     try {
       AuraSnackbar.success(context, 'Memproses...');
@@ -190,7 +189,7 @@ class AdminPaymentsScreen extends ConsumerWidget {
 
   Future<void> _handleReject(BuildContext context, WidgetRef ref, String paymentId) async {
     final confirm = await _showConfirmDialog(context, 'Tolak Pembayaran', 'Apakah Anda yakin ingin menolak pembayaran ini?');
-    if (confirm != true) return;
+    if (confirm != true || !context.mounted) return;
 
     try {
       AuraSnackbar.success(context, 'Memproses...');

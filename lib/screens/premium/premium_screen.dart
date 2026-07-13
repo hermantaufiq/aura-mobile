@@ -90,7 +90,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                       TextButton.icon(
                         onPressed: () async {
                           await Clipboard.setData(const ClipboardData(text: '901257873539'));
-                          if (mounted) {
+                          if (context.mounted) {
                             AuraSnackbar.success(context, 'Nomor rekening disalin');
                           }
                         },
