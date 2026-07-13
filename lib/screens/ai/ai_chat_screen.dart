@@ -8,8 +8,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
+import '../../models/ai_intent_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/ai_provider.dart';
+import '../../providers/task_provider.dart';
+import '../../providers/finance_provider.dart';
 import '../../models/ai_chat_model.dart';
 
 class AiChatScreen extends ConsumerStatefulWidget {
@@ -38,15 +41,13 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
   }
 
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (_scrollCtrl.hasClients) {
-        _scrollCtrl.animateTo(
-          _scrollCtrl.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
+    if (_scrollCtrl.hasClients) {
+      _scrollCtrl.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   final _picker = ImagePicker();
@@ -116,6 +117,18 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
     final remaining = authNotifier.remainingAiCount;
     final userName = ref.watch(currentUserProvider)?.name ?? 'Sobat';
 
+    // Refresh providers saat AI berhasil buat task/finance
+    ref.listen<AiChatState>(aiChatProvider, (prev, next) {
+      final intent = next.lastIntent;
+      if (intent == null) return;
+      if (intent.action == AiAction.createTask ||
+          intent.action == AiAction.updateTaskStatus) {
+        ref.read(taskProvider.notifier).loadTasks();
+      } else if (intent.action == AiAction.createFinance) {
+        ref.read(financeProvider.notifier).loadFinances();
+      }
+    });
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -184,16 +197,21 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
 
           Column(
             children: [
+              // Action banner (muncul saat AI berhasil eksekusi perintah)
+              if (chatState.lastIntent != null)
+                _buildActionBanner(chatState.lastIntent!),
+
               // Chat Area
               Expanded(
                 child: chatState.messages.isEmpty
                     ? _buildEmptyState(userName)
                     : ListView.builder(
                         controller: _scrollCtrl,
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100), // padding bottom for input
+                        reverse: true,
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
                         itemCount: chatState.messages.length,
                         itemBuilder: (context, i) {
-                          final msg = chatState.messages[i];
+                          final msg = chatState.messages[chatState.messages.length - 1 - i];
                           return _ChatBubble(message: msg);
                         },
                       ),
@@ -209,6 +227,81 @@ class _AiChatScreenState extends ConsumerState<AiChatScreen> {
             child: _buildFloatingInput(chatState),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionBanner(AiIntent intent) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = intent.action == AiAction.createTask
+        ? AppColors.primary
+        : intent.action == AiAction.createFinance
+            ? AppColors.success
+            : AppColors.secondary;
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset(0, (1 - value) * -10),
+          child: child,
+        ),
+      ),
+      child: Dismissible(
+        key: ValueKey(intent.action.name + DateTime.now().toString()),
+        direction: DismissDirection.up,
+        onDismissed: (_) =>
+            ref.read(aiChatProvider.notifier).clearLastIntent(),
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark
+                ? color.withValues(alpha: 0.15)
+                : color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Text(intent.action.icon,
+                  style: const TextStyle(fontSize: 20)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      intent.action.label,
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (intent.confirmationMessage?.isNotEmpty == true)
+                      Text(
+                        intent.confirmationMessage!,
+                        style: TextStyle(
+                          color: color.withValues(alpha: 0.8),
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: () =>
+                    ref.read(aiChatProvider.notifier).clearLastIntent(),
+                child: Icon(Icons.close_rounded,
+                    size: 16, color: color.withValues(alpha: 0.6)),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

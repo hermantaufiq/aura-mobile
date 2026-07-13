@@ -6,7 +6,7 @@
 routerAdd("POST", "/api/midtrans/checkout", (c) => {
   // Baca dari environment variable (set di .env atau OS environment)
   // JANGAN hardcode key langsung di sini!
-  const MIDTRANS_SERVER_KEY = $os.getenv("MIDTRANS_SERVER_KEY") || "";
+  const MIDTRANS_SERVER_KEY = $os.getenv("MIDTRANS_SERVER_KEY");
   if (!MIDTRANS_SERVER_KEY) {
     throw new BadRequestError("MIDTRANS_SERVER_KEY belum dikonfigurasi di server");
   }
@@ -61,6 +61,21 @@ routerAdd("POST", "/api/midtrans/checkout", (c) => {
     // Buat Order ID unik: AURA-PREM-[userId]-[planType]-[timestamp]
     const orderId = "AURA-PREM-" + user.id + "-" + planType + "-" + new Date().getTime();
     
+    // Simpan ke tabel payments dengan status pending
+    try {
+      const collection = $app.dao().findCollectionByNameOrId("payments");
+      const record = new Record(collection);
+      record.set("user", user.id);
+      record.set("order_id", orderId);
+      record.set("gross_amount", price);
+      record.set("status", "pending");
+      record.set("plan_type", planType);
+      $app.dao().saveRecord(record);
+    } catch (dbErr) {
+      console.log("Gagal membuat record pembayaran: " + dbErr);
+      throw new BadRequestError("Gagal mencatat pembayaran");
+    }
+
     // Siapkan payload untuk Midtrans Snap API
     const payload = {
       "transaction_details": {
@@ -145,17 +160,34 @@ routerAdd("POST", "/api/midtrans/webhook", (c) => {
   // Logika pengecekan status (Success / Settlement)
   if (
     transactionStatus == 'capture' || 
-    transactionStatus == 'settlement'
+    transactionStatus == 'settlement' ||
+    transactionStatus == 'deny' ||
+    transactionStatus == 'cancel' ||
+    transactionStatus == 'expire'
   ) {
-    if (fraudStatus == 'challenge') {
-      // Masih ditahan, abaikan dulu
-      return c.json(200, { "status": "challenged" });
-    } else {
-      // Pembayaran Sukses! Update User di PocketBase
+    // Update tabel payments
+    try {
+      const paymentRecord = $app.dao().findFirstRecordByData("payments", "order_id", orderId);
+      if (transactionStatus == 'capture' || transactionStatus == 'settlement') {
+        paymentRecord.set("status", "success");
+      } else {
+        paymentRecord.set("status", "failed");
+      }
+      $app.dao().saveRecord(paymentRecord);
+    } catch (e) {
+      console.log("Gagal update tabel payments (mungkin belum dibuat): " + e);
+    }
+
+    if (transactionStatus == 'capture' || transactionStatus == 'settlement') {
+      if (fraudStatus == 'challenge') {
+        // Masih ditahan, abaikan dulu
+        return c.json(200, { "status": "challenged" });
+      } else {
+        // Pembayaran Sukses! Update User di PocketBase
       try {
         const user = $app.dao().findRecordById("users", userId);
         
-        user.set("isPremium", true);
+        user.set("is_premium", true);
         
         // Tentukan jumlah hari untuk ditambahkan
         let daysToAdd = 30; // default promo/monthly
@@ -165,7 +197,7 @@ routerAdd("POST", "/api/midtrans/webhook", (c) => {
 
         const now = new Date();
         now.setDate(now.getDate() + daysToAdd);
-        user.set("premiumExpiredAt", now.toISOString().replace("T", " ").substring(0, 19) + "Z");
+        user.set("premium_expired_at", now.toISOString().replace("T", " "));
 
         $app.dao().saveRecord(user);
         
@@ -174,6 +206,7 @@ routerAdd("POST", "/api/midtrans/webhook", (c) => {
         console.log("Gagal update user saat webhook: " + err);
       }
     }
+  }
   }
 
   return c.json(200, { "status": "ok" });

@@ -5,6 +5,7 @@ import 'package:logger/logger.dart';
 
 import '../core/constants/app_constants.dart';
 import '../models/ai_chat_model.dart';
+import '../models/ai_intent_model.dart';
 import '../services/ai_context_builder.dart';
 import '../services/ai_service.dart';
 import 'auth_provider.dart';
@@ -15,22 +16,27 @@ class AiChatState {
   final List<ChatMessage> messages;
   final bool isLoading;
   final String? error;
+  final AiIntent? lastIntent; // untuk konfirmasi UI
 
   const AiChatState({
     this.messages = const [],
     this.isLoading = false,
     this.error,
+    this.lastIntent,
   });
 
   AiChatState copyWith({
     List<ChatMessage>? messages,
     bool? isLoading,
     String? error,
+    AiIntent? lastIntent,
+    bool clearIntent = false,
   }) {
     return AiChatState(
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
       error: error,
+      lastIntent: clearIntent ? null : (lastIntent ?? this.lastIntent),
     );
   }
 }
@@ -93,27 +99,37 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       messages: [...state.messages, userMsg, loadingMsg],
       isLoading: true,
       error: null,
+      clearIntent: true,
     );
 
     try {
-      // Call AI service - simple text response
-      final aiResponse = await _aiService.sendMessage(
-        message: message,
-        userId: userId,
-      );
+      // Parse intent & kirim chat ke AI secara paralel
+      final results = await Future.wait([
+        _aiService.parseIntent(message),
+        _aiService.sendMessage(message: message, userId: userId),
+      ]);
 
-      final response = aiResponse['content'] as String? ?? '';
+      final intent = results[0] as AiIntent;
+      final aiResponse = results[1] as Map<String, dynamic>;
+      final responseText = aiResponse['content'] as String? ?? '';
 
-      if (response.isEmpty) {
-        throw Exception('AI returned empty response');
+      // Eksekusi action jika ada
+      AiIntent? executedIntent;
+      if (intent.isActionable) {
+        final success = await _aiService.executeIntent(intent, userId);
+        if (success) {
+          executedIntent = intent;
+          _logger.i('Intent executed: ${intent.action.name}');
+        }
       }
 
-      // Try to save chat history (non-blocking if fails)
+      if (responseText.isEmpty) throw Exception('AI returned empty response');
+
       unawaited(
         _aiService.saveChat(
           userId: userId,
           message: message,
-          response: response,
+          response: responseText,
           type: AppConstants.aiTypeChat,
         ).catchError((e) {
           _logger.e('Failed to save chat: $e');
@@ -122,9 +138,13 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       );
 
       final msgs = state.messages.toList()..removeLast();
-      msgs.add(ChatMessage.ai(response));
+      msgs.add(ChatMessage.ai(responseText));
 
-      state = state.copyWith(messages: msgs, isLoading: false);
+      state = state.copyWith(
+        messages: msgs,
+        isLoading: false,
+        lastIntent: executedIntent,
+      );
       return true;
     } catch (e) {
       final msgs = state.messages.toList()..removeLast();
@@ -156,6 +176,10 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       );
       return false;
     }
+  }
+
+  void clearLastIntent() {
+    state = state.copyWith(clearIntent: true);
   }
 
   Future<void> clearMessages() async {

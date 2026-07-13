@@ -135,6 +135,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final user = await _authService.login(email: email, password: password);
+      
+      if (!user.isVerified) {
+        // Force logout if not verified
+        PocketBaseService.instance.pb.authStore.clear();
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Akun belum diverifikasi OTP. Silakan buat akun baru dengan email lain.',
+        );
+        return false;
+      }
+
       state = AuthState(user: user, isLoggedIn: true);
 
       // Kirim notifikasi selamat datang kembali (fire-and-forget)

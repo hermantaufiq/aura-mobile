@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
@@ -178,7 +179,8 @@ class AuthService {
     return fresh ?? loadLocalUser();
   }
 
-  // Verify OTP
+  // Verify OTP — via server-side hook yang punya akses admin ($app.dao())
+  // Bypass listRule restriction yang butuh auth
   Future<bool> verifyOtp({
     required String email,
     required String otp,
@@ -189,96 +191,73 @@ class AuthService {
     _logger.i('🔐 Input OTP: "$inputOtp"');
 
     try {
-      // Step 1: Cari berdasarkan email
-      _logger.i('📋 Step 1: Querying user for email "$email"');
-      final result = await _pb.collection(AppConstants.colUsers).getList(
-            filter: 'email = "${email.replaceAll('"', '\\"')}"',
-          );
+      final baseUrl = _pb.baseURL.endsWith('/')
+          ? _pb.baseURL.substring(0, _pb.baseURL.length - 1)
+          : _pb.baseURL;
 
-      RecordModel? matchedRecord;
-      if (result.items.isNotEmpty) {
-        matchedRecord = result.items.first;
-      } else {
-        // Fallback: jika tidak ditemukan via email, coba cari via OTP langsung (dev-mode fallback)
-        _logger.w('⚠️ User email not found. Trying fallback search by OTP...');
-        final otpResult = await _pb.collection(AppConstants.colUsers).getList(
-              filter: 'otp_code = "$inputOtp"',
-            );
-        if (otpResult.items.isNotEmpty) {
-          matchedRecord = otpResult.items.first;
-        }
+      final url = Uri.parse('$baseUrl/api/verify-otp');
+
+      // Kirim sebagai form-encoded — paling reliable di PocketBase JSVM
+      // Hook membaca via c.formValue("email") dan c.formValue("otp")
+      final response = await http.post(
+        url,
+        body: {
+          'email': email.toLowerCase().trim(),
+          'otp': inputOtp,
+        },
+        // package:http otomatis set Content-Type: application/x-www-form-urlencoded
+      );
+
+      _logger.i('📋 Hook response: ${response.statusCode} | ${response.body}');
+
+      if (response.statusCode == 200 && response.body.contains('"success":true')) {
+        _logger.i('✅ === VERIFICATION SUCCESS ===\n');
+        return true;
       }
 
-      if (matchedRecord == null) {
-        _logger.e('❌ Verification FAILED: No record found for email: $email');
-        return false;
-      }
-
-      // Step 2: Cocokkan OTP
-      final dbOtp = matchedRecord.getStringValue('otp_code').isNotEmpty
-          ? matchedRecord.getStringValue('otp_code')
-          : matchedRecord.data['otp_code']?.toString() ?? '';
-
-      _logger.i('📋 Step 2: Comparing input OTP "$inputOtp" with database OTP "$dbOtp"');
-      
-      if (dbOtp != inputOtp) {
-        _logger.e('❌ Verification FAILED: OTP mismatch!');
-        return false;
-      }
-
-      // Step 3: Update status verifikasi
-      _logger.i('📋 Step 3: Marking user as verified');
-      await _pb.collection(AppConstants.colUsers).update(matchedRecord.id, body: {
-        'is_verified': true,
-        'otp_code': '', // Hapus OTP setelah sukses
-      });
-
-      _logger.i('✅ === VERIFICATION SUCCESS ===\n');
-      return true;
+      _logger.e('❌ Verification FAILED: ${response.body}');
+      return false;
     } catch (e) {
       _logger.e('❌ Verification Error: $e');
       return false;
     }
   }
 
-  // Resend OTP
+
+  // Resend OTP — via server-side hook yang punya akses admin ($app.dao())
+  // Bypass listRule restriction yang butuh auth
   Future<void> resendOtp({required String email}) async {
-    final otp = _generateOtp();
     _logger.i('🔄 Resending OTP for: $email');
-    _logger.i('📝 New OTP generated: $otp');
 
-    final result = await _pb.collection(AppConstants.colUsers).getList(
-      filter: 'email = "${email.replaceAll('"', '\\"')}"',
-    );
+    try {
+      final baseUrl = _pb.baseURL.endsWith('/')
+          ? _pb.baseURL.substring(0, _pb.baseURL.length - 1)
+          : _pb.baseURL;
 
-    RecordModel? record;
-    if (result.items.isNotEmpty) {
-      record = result.items.first;
-    } else {
-      // Fallback: cari user yang emailnya kosong jika di dev mode
-      final all = await _pb.collection(AppConstants.colUsers).getList(perPage: 50);
-      for (var item in all.items) {
-        if (item.getStringValue('email') == email || item.getStringValue('email') == '') {
-          record = item;
-          break;
-        }
-      }
-    }
+      final url = Uri.parse('$baseUrl/api/resend-otp');
 
-    if (record != null) {
-      final userId = record.id;
-      _logger.i('👤 User ID found for resend: $userId');
-      await _pb.collection(AppConstants.colUsers).update(
-        userId,
-        body: {'otp_code': otp},
+      // Kirim sebagai form-encoded — paling reliable di PocketBase JSVM
+      final response = await http.post(
+        url,
+        body: {
+          'email': email.toLowerCase().trim(),
+        },
       );
-      _logger.i('✅ OTP updated in database');
-    } else {
-      _logger.e('❌ User not found for resend OTP: $email');
-    }
 
-    await _sendOtpEmail(email: email, otp: otp);
+      _logger.i('📋 Hook response: ${response.statusCode} | ${response.body}');
+
+      if (response.statusCode == 200 && response.body.contains('"success":true')) {
+        _logger.i('✅ OTP resent successfully');
+      } else {
+        _logger.e('❌ Resend OTP failed: ${response.body}');
+        throw Exception('Gagal mengirim ulang OTP');
+      }
+    } catch (e) {
+      _logger.e('❌ Resend OTP error: $e');
+      rethrow;
+    }
   }
+
 
   // Update profile
   Future<UserModel> updateProfile({
@@ -438,10 +417,10 @@ class AuthService {
     }
   }
 
-  // Generate 6-digit OTP
+  // Generate 6-digit OTP (cryptographically random)
   String _generateOtp() {
-    final random = DateTime.now().millisecondsSinceEpoch % 1000000;
-    final otp = random.toString().padLeft(6, '0');
+    final random = Random.secure();
+    final otp = (random.nextInt(900000) + 100000).toString(); // always 6 digits: 100000-999999
     
     // TAMPILKAN DI TERMINAL DENGAN SANGAT MENCOLOK
     _logger.i('\n\n${'=' * 50}');
@@ -451,12 +430,5 @@ class AuthService {
     _logger.i('🔐 Generated OTP: $otp');
     return otp;
   }
-
-  // Send OTP (sepenuhnya ditangani di backend PocketBase JS Hook)
-  Future<void> _sendOtpEmail({
-    required String email,
-    required String otp,
-  }) async {
-    _logger.i('📧 Pengiriman email OTP [Email: $email, OTP: $otp] didelegasikan ke PocketBase backend JS Hook (Opsi B).');
-  }
 }
+

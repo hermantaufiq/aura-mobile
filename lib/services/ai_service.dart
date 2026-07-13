@@ -6,12 +6,50 @@ import 'package:pocketbase/pocketbase.dart';
 
 import '../core/constants/app_constants.dart';
 import '../models/ai_chat_model.dart';
+import '../models/ai_intent_model.dart';
 import '../models/ai_user_context.dart';
 import 'pocketbase_service.dart';
+import 'task_service.dart';
+import 'finance_service.dart';
 
 class AiService {
   final PocketBase _pb = PocketBaseService.instance.pb;
   final _logger = Logger();
+  final _taskService = TaskService();
+  final _financeService = FinanceService();
+
+  // ─── Intent Detection System Prompt ────────────────────────────────────────
+  static const _intentSystemPrompt = '''
+Kamu adalah parser intent untuk aplikasi AURA. Tugasmu HANYA menganalisis pesan user dan mengembalikan JSON terstruktur.
+
+Kamu HARUS memilih salah satu action:
+- "createTask" — jika user ingin membuat/menambah tugas baru
+- "createFinance" — jika user ingin mencatat pemasukan atau pengeluaran
+- "updateTaskStatus" — jika user ingin mengubah status tugas
+- "none" — jika bukan perintah di atas (hanya chat biasa)
+
+Format JSON yang WAJIB dikembalikan (tanpa markdown, tanpa penjelasan, hanya JSON murni):
+{
+  "action": "createTask" | "createFinance" | "updateTaskStatus" | "none",
+  "fields": {
+    // createTask: {"title": string, "priority": "low"|"medium"|"high", "deadline_offset_days": number|null, "description": string}
+    // createFinance: {"type": "income"|"expense", "category": string, "amount": number, "note": string}
+    // updateTaskStatus: {"title_keyword": string, "status": "pending"|"in_progress"|"done"}
+    // none: {}
+  },
+  "confirmation_message": "Pesan konfirmasi singkat dalam Bahasa Indonesia"
+}
+
+Contoh:
+User: "buat tugas laporan skripsi deadline besok prioritas tinggi"
+-> {"action": "createTask", "fields": {"title": "Laporan Skripsi", "priority": "high", "deadline_offset_days": 1, "description": ""}, "confirmation_message": "Tugas 'Laporan Skripsi' berhasil dibuat!"}
+
+User: "catat pengeluaran makan siang 35000"
+-> {"action": "createFinance", "fields": {"type": "expense", "category": "Makan", "amount": 35000, "note": "Makan siang"}, "confirmation_message": "Pengeluaran Rp35.000 untuk Makan berhasil dicatat!"}
+
+User: "apa kabar?"
+-> {"action": "none", "fields": {}, "confirmation_message": ""}
+''';
 
   static const _baseSystemPrompt = '''
 Kamu adalah AURA, asisten pribadi AI yang sangat cerdas, ramah, dan profesional.
@@ -32,7 +70,107 @@ Kamu membantu pengguna mengelola tugas harian, keuangan, dan memberikan rekomend
 Catatan: Responmu akan langsung dirender sebagai Markdown, jadi pastikan formatnya selalu benar.''';
 
 
-  /// Kirim pesan ke Groq - TEXT ONLY (no function calling untuk sekarang)
+  // ─── Intent Parsing ────────────────────────────────────────────────────────
+
+  /// Parse pesan user untuk mendeteksi intent aksi
+  Future<AiIntent> parseIntent(String userMessage) async {
+    final uri = Uri.parse('${AppConstants.groqApiUrl}/chat/completions');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer ${AppConstants.groqApiKey}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'model': AppConstants.groqModel,
+          'messages': [
+            {'role': 'system', 'content': _intentSystemPrompt},
+            {'role': 'user', 'content': userMessage},
+          ],
+          'temperature': 0.1,
+          'max_tokens': 256,
+          'response_format': {'type': 'json_object'},
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final content = data['choices'][0]['message']['content'] as String;
+        final json = jsonDecode(content) as Map<String, dynamic>;
+        return AiIntent.fromJson(json);
+      }
+    } catch (e) {
+      _logger.w('Intent parsing failed (non-critical): $e');
+    }
+    return AiIntent.none();
+  }
+
+  /// Eksekusi intent: buat tugas/transaksi di PocketBase
+  Future<bool> executeIntent(AiIntent intent, String userId) async {
+    try {
+      switch (intent.action) {
+        case AiAction.createTask:
+          final f = intent.fields;
+          final title = (f['title'] as String?) ?? 'Tugas Baru';
+          final priority = (f['priority'] as String?) ?? 'medium';
+          final offsetDays = (f['deadline_offset_days'] as num?)?.toInt();
+          final description = (f['description'] as String?) ?? '';
+          final deadline = offsetDays != null
+              ? DateTime.now().add(Duration(days: offsetDays))
+              : null;
+          await _taskService.createTask(
+            userId: userId,
+            title: title,
+            description: description,
+            priority: priority,
+            deadline: deadline,
+          );
+          return true;
+
+        case AiAction.createFinance:
+          final f = intent.fields;
+          final type = (f['type'] as String?) ?? 'expense';
+          final category = (f['category'] as String?) ?? 'Lainnya';
+          final amount = (f['amount'] as num?)?.toDouble() ?? 0;
+          final note = (f['note'] as String?) ?? '';
+          await _financeService.createFinance(
+            userId: userId,
+            type: type,
+            category: category,
+            amount: amount,
+            note: note,
+          );
+          return true;
+
+        case AiAction.updateTaskStatus:
+          // Cari task berdasarkan keyword lalu update status
+          final keyword = (intent.fields['title_keyword'] as String?) ?? '';
+          final status = (intent.fields['status'] as String?) ?? 'done';
+          if (keyword.isNotEmpty) {
+            final tasks = await _taskService.getTasks(userId: userId);
+            final match = tasks.where(
+              (t) => t.title.toLowerCase().contains(keyword.toLowerCase()),
+            ).firstOrNull;
+            if (match != null) {
+              await _taskService.updateStatus(taskId: match.id, status: status);
+              return true;
+            }
+          }
+          return false;
+
+        default:
+          return false;
+      }
+    } catch (e) {
+      _logger.e('executeIntent error: $e');
+      return false;
+    }
+  }
+
+  // ─── Chat with Groq ────────────────────────────────────────────────────────
+
+  /// Kirim pesan ke Groq - TEXT ONLY
   Future<Map<String, dynamic>> sendMessage({
     required String message,
     required String userId,

@@ -80,9 +80,15 @@ class ProfileScreen extends ConsumerWidget {
 
           // Content
           SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await ref.read(authStateProvider.notifier).refreshUser();
+              },
+              color: AppColors.primary,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  children: [
                   // Header
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
@@ -380,6 +386,7 @@ class ProfileScreen extends ConsumerWidget {
                 ],
               ),
             ),
+          ),
           ),
         ],
       ),

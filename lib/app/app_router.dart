@@ -42,15 +42,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = authState.isLoggedIn;
       final isOnSplash = state.matchedLocation == '/splash';
       final isOnAuth = state.matchedLocation.startsWith('/auth');
+      final isOnOtp = state.matchedLocation == '/auth/otp';
       final isOnAdminAuth = state.matchedLocation == '/admin/login';
       final isOnAdminApp = state.matchedLocation.startsWith('/admin') && !isOnAdminAuth;
       final role = authState.user?.role;
 
-      // Still loading auth — send to splash to wait
-      if (authState.isLoading) {
-        if (isOnSplash) return null;
-        return '/splash';
-      }
+      // OTP screen: prevent redirect away while user is in the middle of registration.
+      // But if they are logged in (OTP verified), let them flow to the authenticated redirects.
+      if (isOnOtp && !isLoggedIn) return null;
+
+      // Still loading auth (initial app startup only, indicated by being on splash)
+      // Do NOT redirect to splash during register/login isLoading — that would
+      // interrupt in-progress flows like the OTP navigation.
+      if (authState.isLoading && isOnSplash) return null;
 
       // Splash screen: don't interfere (SplashScreen handles nav itself)
       if (isOnSplash) return null;
@@ -72,7 +76,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       } else {
         // If a normal user explicitly visits /admin/login, let them see it so they can login as admin!
         if (isOnAdminAuth) return null;
-        
+
         if (isOnAdminApp) return '/auth/login';
         if (isOnAuth) return '/home';
         return null;

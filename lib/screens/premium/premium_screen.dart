@@ -41,7 +41,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
         // Wait a bit and refresh user profile to check if webhook came through
         Future.delayed(const Duration(seconds: 15), () {
           if (mounted) {
-            ref.read(authStateProvider.notifier).waitForInit(); 
+            ref.read(authStateProvider.notifier).refreshUser(); 
           }
         });
       }

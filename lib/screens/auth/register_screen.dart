@@ -209,7 +209,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen>
                                 keyboardType: TextInputType.emailAddress,
                                 validator: (v) {
                                   if (v == null || v.isEmpty) return 'Email wajib diisi';
-                                  if (!v.contains('@')) return 'Format email tidak valid';
+                                  final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                                  if (!emailRegex.hasMatch(v)) return 'Format email tidak valid';
                                   return null;
                                 },
                               ),
