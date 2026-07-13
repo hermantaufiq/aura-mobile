@@ -16,5 +16,5 @@ COPY ./pb_hooks /pb/pb_hooks
 
 EXPOSE 8080
 
-# Railway injects $PORT dynamically — use shell form so the variable is expanded at runtime
-CMD /pb/pocketbase serve --http=0.0.0.0:${PORT:-8080}
+# Railway domain target port is set to 8080 — match it here explicitly
+CMD ["/pb/pocketbase", "serve", "--http=0.0.0.0:8080"]

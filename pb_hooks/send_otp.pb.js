@@ -1,8 +1,8 @@
 // pb_hooks/send_otp.pb.js
-// Compatible with PocketBase v0.22.x
+// Compatible with PocketBase v0.23.x
 
 // Hook after user creation — send OTP email
-onRecordAfterCreateRequest((e) => {
+onRecordAfterCreateSuccess((e) => {
     const record = e.record;
     const otp = record.get("otp_code") || "";
     const email = record.get("email") || "";

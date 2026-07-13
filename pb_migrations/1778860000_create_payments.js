@@ -1,4 +1,4 @@
-migrate((db) => {
+﻿migrate((db) => {
   const collection = new Collection({
     "id": "payments_col_001",
     "created": "",
@@ -91,10 +91,11 @@ migrate((db) => {
     "options": {}
   });
 
-  return Dao(db).saveCollection(collection);
+  return $app.dao().saveCollection(collection);
 }, (db) => {
-  const dao = new Dao(db);
+  const dao = $app.dao();
   const collection = dao.findCollectionByNameOrId("payments_col_001");
 
   return dao.deleteCollection(collection);
 });
+

@@ -1,6 +1,6 @@
-/// <reference path="../pb_data/types.d.ts" />
+﻿/// <reference path="../pb_data/types.d.ts" />
 migrate((db) => {
-  const dao = new Dao(db);
+  const dao = $app.dao();
   const collection = dao.findCollectionByNameOrId("ai_chats");
 
   collection.schema.addField(new SchemaField({
@@ -20,10 +20,11 @@ migrate((db) => {
 
   return dao.saveCollection(collection);
 }, (db) => {
-  const dao = new Dao(db);
+  const dao = $app.dao();
   const collection = dao.findCollectionByNameOrId("ai_chats");
 
   collection.schema.removeField("aitypefld1");
 
   return dao.saveCollection(collection);
 });
+

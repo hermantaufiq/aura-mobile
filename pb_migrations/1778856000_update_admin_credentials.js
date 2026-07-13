@@ -1,6 +1,6 @@
-/// <reference path="../pb_data/types.d.ts" />
+﻿/// <reference path="../pb_data/types.d.ts" />
 migrate((db) => {
-  const dao = new Dao(db);
+  const dao = $app.dao();
   
   try {
     // Cari admin lama (admin@aura.ai)
@@ -12,13 +12,13 @@ migrate((db) => {
     record.set('passwordConfirm', 'aura123?');
     
     dao.saveRecord(record);
-    console.log("✅ Berhasil update kredensial Admin");
+    console.log("âœ… Berhasil update kredensial Admin");
   } catch (e) {
     console.log("Admin admin@aura.ai tidak ditemukan atau sudah diganti.");
   }
 }, (db) => {
   // Revert
-  const dao = new Dao(db);
+  const dao = $app.dao();
   try {
     const record = dao.findFirstRecordByData('users', 'email', 'aura@gmail.com');
     record.set('email', 'admin@aura.ai');
@@ -27,3 +27,4 @@ migrate((db) => {
     dao.saveRecord(record);
   } catch (e) {}
 });
+

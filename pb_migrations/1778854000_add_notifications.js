@@ -1,4 +1,4 @@
-migrate((db) => {
+﻿migrate((db) => {
   const collection = new Collection({
     "id": "notifications_col",
     "created": "",
@@ -134,10 +134,11 @@ migrate((db) => {
     "options": {}
   });
 
-  return Dao(db).saveCollection(collection);
+  return $app.dao().saveCollection(collection);
 }, (db) => {
-  const dao = new Dao(db);
+  const dao = $app.dao();
   const collection = dao.findCollectionByNameOrId("notifications_col");
 
   return dao.deleteCollection(collection);
 });
+

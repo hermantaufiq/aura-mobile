@@ -1,6 +1,6 @@
-/// <reference path="../pb_data/types.d.ts" />
+﻿/// <reference path="../pb_data/types.d.ts" />
 migrate((db) => {
-  const dao = new Dao(db);
+  const dao = $app.dao();
   const adminEmail = 'admin@aura.ai';
   
   // 1. Create default admin user if not exists
@@ -41,3 +41,4 @@ migrate((db) => {
 }, (db) => {
   // Revert logic
 });
+

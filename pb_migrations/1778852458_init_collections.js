@@ -1,6 +1,6 @@
-/// <reference path="../pb_data/types.d.ts" />
+﻿/// <reference path="../pb_data/types.d.ts" />
 migrate((db) => {
-  const dao = new Dao(db);
+  const dao = $app.dao();
 
   // --- Tasks ---
   const tasks = new Collection({
@@ -65,7 +65,7 @@ migrate((db) => {
 
   return null;
 }, (db) => {
-  const dao = new Dao(db);
+  const dao = $app.dao();
 
   try { const c1 = dao.findCollectionByNameOrId("tasks"); dao.deleteCollection(c1); } catch(e) {}
   try { const c2 = dao.findCollectionByNameOrId("finances"); dao.deleteCollection(c2); } catch(e) {}
@@ -73,3 +73,4 @@ migrate((db) => {
 
   return null;
 })
+
