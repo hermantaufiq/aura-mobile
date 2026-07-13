@@ -77,7 +77,7 @@ routerAdd("POST", "/api/resend-otp", (c) => {
             console.log("[resend-otp] ✅ Email sent to " + email);
         } catch (mailErr) {
             console.log("[resend-otp] ❌ Email error: " + mailErr);
-            return c.json(500, { success: false, message: "Gagal mengirim email" });
+            return c.json(500, { success: false, message: "Gagal mengirim email: " + String(mailErr) });
         }
 
         return c.json(200, { success: true, message: "OTP baru telah dikirim" });
