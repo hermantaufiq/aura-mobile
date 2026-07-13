@@ -29,7 +29,13 @@ routerAdd("POST", "/api/resend-otp", (c) => {
     }
 
     try {
-        const record = $app.dao().findFirstRecordByData("users", "email", email);
+        let record;
+        try {
+            record = $app.dao().findFirstRecordByData("users", "email", email);
+        } catch (e) {
+            console.log("[resend-otp] User not found or error: " + e);
+            return c.json(200, { success: false, message: "User tidak ditemukan" });
+        }
 
         if (!record) {
             console.log("[resend-otp] No user found for email: " + email);
