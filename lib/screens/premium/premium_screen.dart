@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/navigation_utils.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/midtrans_service.dart';
+import '../../services/payment_service.dart';
 import '../../widgets/common/aura_snackbar.dart';
 
 class PremiumScreen extends ConsumerStatefulWidget {
@@ -19,41 +20,205 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
   bool _isLoading = false;
   String _selectedPlan = 'monthly';
 
-  Future<void> _upgrade() async {
-    setState(() => _isLoading = true);
+  void _showPaymentDialog() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ts = AppTextStyles.of(context);
+    
+    String priceText = 'Rp 49.000';
+    if (_selectedPlan == 'promo') priceText = 'Rp 29.000';
+    if (_selectedPlan == 'yearly') priceText = 'Rp 499.000';
 
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.bgSurface : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24).copyWith(
+          bottom: MediaQuery.of(context).padding.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                const Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 28),
+                const SizedBox(width: 12),
+                Text('Pembayaran Premium', style: ts.headlineSmall.copyWith(fontWeight: FontWeight.bold)),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                children: [
+                  _buildPaymentRow('Bank', 'SeaBank Indonesia', ts),
+                  const Divider(height: 24),
+                  _buildPaymentRow('Atas Nama', 'Muhamad Hermawan Taufiq', ts),
+                  const Divider(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('No. Rekening', style: ts.bodySmall.copyWith(color: AppColors.textSecondary)),
+                          const SizedBox(height: 4),
+                          Text('901257873539', style: ts.bodyLarge.copyWith(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                        ],
+                      ),
+                      TextButton.icon(
+                        onPressed: () async {
+                          await Clipboard.setData(const ClipboardData(text: '901257873539'));
+                          if (mounted) {
+                            AuraSnackbar.success(context, 'Nomor rekening disalin');
+                          }
+                        },
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: const Text('Salin'),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  _buildPaymentRow('Total Bayar', priceText, ts, isTotal: true),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Silakan transfer sesuai nominal di atas. Setelah transfer berhasil, klik tombol di bawah ini.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context); // Close dialog
+                  _activatePremium(); // Activate
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Saya Sudah Bayar ✓', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentRow(String label, String value, ResolvedTextStyles ts, {bool isTotal = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: ts.bodySmall.copyWith(color: AppColors.textSecondary)),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: isTotal 
+                ? ts.headlineSmall.copyWith(fontWeight: FontWeight.bold, color: AppColors.primary)
+                : ts.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _activatePremium() async {
+    setState(() => _isLoading = true);
+    
+    AuraSnackbar.success(context, 'Memproses pembayaran Anda...');
+    
+    final user = ref.read(currentUserProvider);
+    if (user == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      await PaymentService.instance.createPendingPayment(
+        userId: user.id,
+        planType: _selectedPlan,
+      );
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+        
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            icon: const Icon(Icons.hourglass_top, size: 48, color: AppColors.primary),
+            title: const Text('Pembayaran Diterima'),
+            content: const Text(
+              'Terima kasih! Pembayaran Anda telah kami catat dan sedang dalam proses verifikasi oleh tim Admin (maksimal 1x24 jam).\n\nStatus Premium Anda akan aktif setelah verifikasi selesai.',
+              textAlign: TextAlign.center,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  safePop(context, fallback: '/profile');
+                },
+                child: const Text('Mengerti', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        AuraSnackbar.error(context, 'Gagal memproses pembayaran: $e');
+      }
+    }
+  }
+
+  Future<void> _upgrade() async {
     final user = ref.read(currentUserProvider);
     if (user == null) {
       if (mounted) {
         AuraSnackbar.error(context, 'Silakan login terlebih dahulu.');
-        setState(() => _isLoading = false);
       }
       return;
     }
 
-    final url = await MidtransService.instance.createCheckoutUrl(user.id, planType: _selectedPlan);
-    if (url != null) {
-      await MidtransService.instance.openPaymentUrl(url);
-      
-      if (mounted) {
-        AuraSnackbar.success(context, 'Membuka halaman pembayaran...');
-        
-        // Wait a bit and refresh user profile to check if webhook came through
-        Future.delayed(const Duration(seconds: 15), () {
-          if (mounted) {
-            ref.read(authStateProvider.notifier).refreshUser(); 
-          }
-        });
-      }
-    } else {
-      if (mounted) {
-        AuraSnackbar.error(context, 'Gagal membuat tagihan. Coba lagi.');
-      }
-    }
-
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
+    _showPaymentDialog();
   }
 
   @override

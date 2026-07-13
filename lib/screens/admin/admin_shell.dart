@@ -10,7 +10,8 @@ class AdminShell extends StatelessWidget {
   int _getSelectedIndex(String location) {
     if (location.startsWith('/admin/dashboard')) return 0;
     if (location.startsWith('/admin/users')) return 1;
-    if (location.startsWith('/admin/settings')) return 2;
+    if (location.startsWith('/admin/payments')) return 2;
+    if (location.startsWith('/admin/settings')) return 3;
     return 0;
   }
 
@@ -23,6 +24,9 @@ class AdminShell extends StatelessWidget {
         context.go('/admin/users');
         break;
       case 2:
+        context.go('/admin/payments');
+        break;
+      case 3:
         context.go('/admin/settings');
         break;
     }
@@ -65,6 +69,11 @@ class AdminShell extends StatelessWidget {
               icon: Icon(Icons.people_outline),
               activeIcon: Icon(Icons.people),
               label: 'Users',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.payments_outlined),
+              activeIcon: Icon(Icons.payments),
+              label: 'Pembayaran',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.settings_outlined),

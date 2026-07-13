@@ -22,6 +22,7 @@ import '../screens/admin/admin_login_screen.dart';
 import '../screens/admin/admin_shell.dart';
 import '../screens/admin/admin_dashboard_screen.dart';
 import '../screens/admin/admin_users_screen.dart';
+import '../screens/admin/admin_payments_screen.dart';
 import '../screens/admin/admin_settings_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -130,6 +131,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/admin/users',
             name: 'admin-users',
             builder: (context, state) => const AdminUsersScreen(),
+          ),
+          GoRoute(
+            path: '/admin/payments',
+            name: 'admin-payments',
+            builder: (context, state) => const AdminPaymentsScreen(),
           ),
           GoRoute(
             path: '/admin/settings',
