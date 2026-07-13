@@ -29,21 +29,12 @@ routerAdd("POST", "/api/resend-otp", (c) => {
     }
 
     try {
-        const records = $app.dao().findRecordsByFilter(
-            "users",
-            `email = {:email}`,
-            "-created",
-            1,
-            0,
-            { email: email }
-        );
+        const record = $app.dao().findFirstRecordByData("users", "email", email);
 
-        if (!records || records.length === 0) {
+        if (!record) {
             console.log("[resend-otp] No user found for email: " + email);
             return c.json(200, { success: false, message: "User tidak ditemukan" });
         }
-
-        const record = records[0];
 
         // Generate OTP baru (6 digit)
         const otp = String(Math.floor(100000 + Math.random() * 900000));

@@ -32,21 +32,12 @@ routerAdd("POST", "/api/verify-otp", (c) => {
 
     try {
         // $app.dao() punya akses admin — bypass listRule sepenuhnya
-        const records = $app.dao().findRecordsByFilter(
-            "users",
-            `email = {:email}`,
-            "-created",
-            1,
-            0,
-            { email: email.toLowerCase() }
-        );
+        const record = $app.dao().findFirstRecordByData("users", "email", email.toLowerCase());
 
-        if (!records || records.length === 0) {
+        if (!record) {
             console.log("[verify-otp] No user found for email: " + email);
             return c.json(200, { success: false, message: "User tidak ditemukan" });
         }
-
-        const record = records[0];
         const dbOtp = record.getString("otp_code") || "";
 
         console.log("[verify-otp] DB OTP: '" + dbOtp + "' | Input: '" + inputOtp + "' | Match: " + (dbOtp === inputOtp));
