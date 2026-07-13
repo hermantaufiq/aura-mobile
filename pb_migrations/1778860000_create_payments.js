@@ -91,11 +91,12 @@
     "options": {}
   });
 
-  return $app.dao().saveCollection(collection);
+  return new Dao(db).saveCollection(collection);
 }, (db) => {
-  const dao = $app.dao();
+  const dao = new Dao(db);
   const collection = dao.findCollectionByNameOrId("payments_col_001");
 
   return dao.deleteCollection(collection);
 });
+
 

@@ -1,6 +1,6 @@
 ﻿/// <reference path="../pb_data/types.d.ts" />
 migrate((db) => {
-  const dao = $app.dao()
+  const dao = new Dao(db)
   const collection = dao.findCollectionByNameOrId("_pb_users_auth_")
 
   // add
@@ -107,7 +107,7 @@ migrate((db) => {
 
   return dao.saveCollection(collection)
 }, (db) => {
-  const dao = $app.dao()
+  const dao = new Dao(db)
   const collection = dao.findCollectionByNameOrId("_pb_users_auth_")
 
   // remove
@@ -133,4 +133,5 @@ migrate((db) => {
 
   return dao.saveCollection(collection)
 })
+
 

@@ -1,6 +1,6 @@
 ﻿/// <reference path="../pb_data/types.d.ts" />
 migrate((db) => {
-  const dao = $app.dao();
+  const dao = new Dao(db);
   
   try {
     // Cari admin lama (admin@aura.ai)
@@ -18,7 +18,7 @@ migrate((db) => {
   }
 }, (db) => {
   // Revert
-  const dao = $app.dao();
+  const dao = new Dao(db);
   try {
     const record = dao.findFirstRecordByData('users', 'email', 'aura@gmail.com');
     record.set('email', 'admin@aura.ai');
@@ -27,4 +27,5 @@ migrate((db) => {
     dao.saveRecord(record);
   } catch (e) {}
 });
+
 

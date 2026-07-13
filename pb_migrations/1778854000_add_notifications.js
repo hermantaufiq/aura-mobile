@@ -134,11 +134,12 @@
     "options": {}
   });
 
-  return $app.dao().saveCollection(collection);
+  return new Dao(db).saveCollection(collection);
 }, (db) => {
-  const dao = $app.dao();
+  const dao = new Dao(db);
   const collection = dao.findCollectionByNameOrId("notifications_col");
 
   return dao.deleteCollection(collection);
 });
+
 

@@ -2,14 +2,16 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConstants {
   // PocketBase
-  // Gunakan 127.0.0.1 agar dapat terhubung dengan baik di semua environment
-  static const String pbBaseUrl = 'http://127.0.0.1:8090';
+  // Database online di Railway
+  static const String pbBaseUrl = 'https://aura-mobile-production.up.railway.app';
 
   // AI API (OpenAI)
-  static const String openaiApiUrl = 'https://api.openai.com/v1'; // Base URL untuk OpenAI
-  static String get openaiApiKey => dotenv.env['OPENAI_API_KEY'] ?? ''; 
-  static const String openaiModel = 'gpt-3.5-turbo'; // atau 'gpt-4' untuk hasil lebih baik
-  
+  static const String openaiApiUrl =
+      'https://api.openai.com/v1'; // Base URL untuk OpenAI
+  static String get openaiApiKey => dotenv.env['OPENAI_API_KEY'] ?? '';
+  static const String openaiModel =
+      'gpt-3.5-turbo'; // atau 'gpt-4' untuk hasil lebih baik
+
   // AI API (Groq - Free Tier)
   static const String groqApiUrl = 'https://api.groq.com/openai/v1';
   static String get groqApiKey => dotenv.env['GROQ_API_KEY'] ?? '';
