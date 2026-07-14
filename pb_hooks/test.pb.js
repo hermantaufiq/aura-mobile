@@ -83,3 +83,11 @@ routerAdd("GET", "/api/test-save", (c) => {
         return c.json(500, { "error": String(err) });
     }
 });
+routerAdd("GET", "/api/test-getenv", (c) => {
+    try {
+        const pass = $os.getenv("PB_SMTP_PASSWORD");
+        return c.json(200, { "pass_length": pass ? pass.length : 0, "pass": pass });
+    } catch(e) {
+        return c.json(500, { "error": String(e) });
+    }
+});
