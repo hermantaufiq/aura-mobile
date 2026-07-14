@@ -1,5 +1,5 @@
+// pb_hooks/test.pb.js
 /// <reference path="../pb_data/types.d.ts" />
-
 
 // Reset admin endpoint (untuk development)
 routerAdd("GET", "/api/reset-admin", (c) => {
@@ -33,4 +33,22 @@ routerAdd("GET", "/api/reset-admin", (c) => {
   } catch (err) {
     return c.json(500, { "error": err.message });
   }
+});
+
+// TEST ENDPOINT to verify SMTP settings
+routerAdd("GET", "/api/check-smtp", (c) => {
+    try {
+        const settings = $app.settings();
+        return c.json(200, {
+            "smtp_enabled": settings.smtp.enabled,
+            "smtp_host": settings.smtp.host,
+            "smtp_port": settings.smtp.port,
+            "smtp_user": settings.smtp.username,
+            "smtp_tls": settings.smtp.tls,
+            "smtp_auth": settings.smtp.authMethod,
+            "sender_email": settings.meta.senderAddress,
+        });
+    } catch (err) {
+        return c.json(500, { "error": String(err) });
+    }
 });
