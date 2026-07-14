@@ -1,8 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/finance_model.dart';
+import '../models/notification_model.dart';
 import '../services/finance_service.dart';
+import '../services/notification_service.dart';
 import '../core/constants/app_constants.dart';
 import 'auth_provider.dart';
+import 'notification_provider.dart';
 
 // Finance State
 class FinanceState {
@@ -57,9 +60,10 @@ class FinanceState {
 // Finance Notifier
 class FinanceNotifier extends StateNotifier<FinanceState> {
   final FinanceService _financeService;
+  final NotificationService _notifService;
   final String userId;
 
-  FinanceNotifier(this._financeService, this.userId)
+  FinanceNotifier(this._financeService, this._notifService, this.userId)
       : super(FinanceState(
           selectedMonth: DateTime.now().month,
           selectedYear: DateTime.now().year,
@@ -202,6 +206,29 @@ class FinanceNotifier extends StateNotifier<FinanceState> {
           balance: totalIncome - totalExpense,
         );
       }
+
+      // 🔔 Notifikasi berhasil sesuai tipe transaksi
+      final amountFormatted = 'Rp${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+      if (type == 'income') {
+        _notifService.createNotification(
+          userId: userId,
+          title: 'Pemasukan Dicatat 💰',
+          message: '$category · $amountFormatted berhasil ditambahkan.',
+          type: NotificationType.general,
+          priority: NotificationPriority.low,
+          data: {'action': 'view_finance'},
+        );
+      } else {
+        _notifService.createNotification(
+          userId: userId,
+          title: 'Pengeluaran Dicatat 🧾',
+          message: '$category · $amountFormatted berhasil ditambahkan.',
+          type: NotificationType.general,
+          priority: NotificationPriority.low,
+          data: {'action': 'view_finance'},
+        );
+      }
+
       return true;
     } catch (e) {
       final errorMessage = _parseErrorMessage(e);
@@ -329,7 +356,11 @@ final financeServiceProvider =
 final financeProvider =
     StateNotifierProvider<FinanceNotifier, FinanceState>((ref) {
   final userId = ref.watch(currentUserProvider)?.id ?? '';
-  return FinanceNotifier(ref.read(financeServiceProvider), userId);
+  return FinanceNotifier(
+    ref.read(financeServiceProvider),
+    ref.read(notificationServiceProvider),
+    userId,
+  );
 });
 
 // Total balance provider (all time)

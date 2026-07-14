@@ -112,6 +112,16 @@ class TaskNotifier extends StateNotifier<TaskState> {
       );
       if (mounted) state = state.copyWith(tasks: [task, ...state.tasks]);
 
+      // 🔔 Notifikasi: Tugas berhasil ditambahkan
+      _notifService.createNotification(
+        userId: userId,
+        title: 'Tugas Ditambahkan 📋',
+        message: '"$title" berhasil masuk ke daftar tugasmu.',
+        type: NotificationType.taskDeadline,
+        priority: NotificationPriority.low,
+        data: {'action': 'view_task', 'taskId': task.id},
+      );
+
       // Auto-create deadline reminder notifications
       if (deadline != null) {
         _scheduleDeadlineNotifications(
