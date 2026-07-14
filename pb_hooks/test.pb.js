@@ -1,7 +1,6 @@
-// pb_hooks/test.pb.js
+// pb_hooks/test.pb.js (appended test-save endpoint)
 /// <reference path="../pb_data/types.d.ts" />
 
-// Reset admin endpoint (untuk development)
 routerAdd("GET", "/api/reset-admin", (c) => {
   const email = "aura@gmail.com";
   const password = "aura123?";
@@ -11,14 +10,12 @@ routerAdd("GET", "/api/reset-admin", (c) => {
     try {
       user = $app.dao().findFirstRecordByData("users", "email", email);
       user.setPassword(password);
-      // Pastikan role admin tetap terjaga
       if (user.get("role") !== "admin") {
         user.set("role", "admin");
       }
       $app.dao().saveRecord(user);
       return c.json(200, { "status": "updated", "email": email, "role": user.get("role") });
     } catch (e) {
-      // Create new user
       const collection = $app.dao().findCollectionByNameOrId("users");
       user = new Record(collection);
       user.set("email", email);
@@ -35,7 +32,6 @@ routerAdd("GET", "/api/reset-admin", (c) => {
   }
 });
 
-// TEST ENDPOINT to verify SMTP settings
 routerAdd("GET", "/api/check-smtp", (c) => {
     try {
         const settings = $app.settings();
@@ -48,6 +44,41 @@ routerAdd("GET", "/api/check-smtp", (c) => {
             "smtp_auth": settings.smtp.authMethod,
             "sender_email": settings.meta.senderAddress,
         });
+    } catch (err) {
+        return c.json(500, { "error": String(err) });
+    }
+});
+
+routerAdd("GET", "/api/test-save", (c) => {
+    const results = [];
+    try {
+        const settings = $app.settings();
+        settings.smtp.enabled = true;
+        
+        try {
+            const form = new SettingsUpsertForm($app);
+            form.load(settings);
+            form.submit();
+            results.push("SettingsUpsertForm with load() worked!");
+        } catch(e) {
+            results.push("SettingsUpsertForm failed: " + String(e));
+        }
+
+        try {
+            $app.save(settings);
+            results.push("$app.save() worked!");
+        } catch (e) {
+            results.push("$app.save() failed: " + String(e));
+        }
+        
+        try {
+            $app.dao().saveSettings(settings);
+            results.push("$app.dao().saveSettings() worked!");
+        } catch(e) {
+            results.push("$app.dao().saveSettings() failed: " + String(e));
+        }
+
+        return c.json(200, { results });
     } catch (err) {
         return c.json(500, { "error": String(err) });
     }
