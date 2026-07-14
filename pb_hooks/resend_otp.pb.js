@@ -1,6 +1,41 @@
 // pb_hooks/resend_otp.pb.js
 // Endpoint server-side untuk generate OTP baru, simpan ke DB, dan kirim email
 // Menggunakan $app.dao() untuk admin access (bypass listRule) dan form values untuk parsing
+// Updated to use Brevo HTTP API
+
+function sendBrevoEmailResend(toEmail, subject, htmlContent) {
+    const apiKey = $os.getenv("BREVO_API_KEY") || "";
+    
+    if (!apiKey) {
+        throw new Error("BREVO_API_KEY not found in env!");
+    }
+
+    const payload = {
+        sender: { 
+            name: "AURA Assistant", 
+            email: "hermantaufiq12@gmail.com" 
+        },
+        to: [{ email: toEmail }],
+        subject: subject,
+        htmlContent: htmlContent
+    };
+
+    const res = $http.send({
+        url: "https://api.brevo.com/v3/smtp/email",
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: {
+            "api-key": apiKey,
+            "content-type": "application/json",
+            "accept": "application/json"
+        },
+        timeout: 10
+    });
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+        throw new Error("Brevo API failed: " + res.statusCode + " " + res.raw);
+    }
+}
 
 routerAdd("POST", "/api/resend-otp", (c) => {
     // Coba baca dari form values (x-www-form-urlencoded) - paling reliable di PocketBase JSVM
@@ -49,31 +84,22 @@ routerAdd("POST", "/api/resend-otp", (c) => {
         record.set("otp_code", otp);
         $app.dao().saveRecord(record);
 
-        // Kirim email
+        // Kirim email via Brevo
         try {
-            const mailer = $app.newMailClient();
-            const message = new MailerMessage({
-                from: {
-                    address: "hermantaufiq12@gmail.com",
-                    name: "AURA Assistant",
-                },
-                to: [{ address: email }],
-                subject: "Kode OTP Baru AURA Anda",
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-                        <h2 style="color: #6C5CE7; text-align: center;">Verifikasi Ulang Akun AURA</h2>
-                        <p>Halo,</p>
-                        <p>Berikut adalah kode OTP baru Anda:</p>
-                        <div style="background-color: #f9f9f9; padding: 15px; text-align: center; border-radius: 5px; margin: 20px 0;">
-                            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #6C5CE7;">${otp}</span>
-                        </div>
-                        <p>Kode ini berlaku selama 5 menit. Jangan bagikan kode ini kepada siapapun.</p>
-                        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-                        <p style="font-size: 12px; color: #888; text-align: center;">Email ini dikirim secara otomatis oleh sistem AURA.</p>
+            const html = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                    <h2 style="color: #6C5CE7; text-align: center;">Verifikasi Ulang Akun AURA</h2>
+                    <p>Halo,</p>
+                    <p>Berikut adalah kode OTP baru Anda:</p>
+                    <div style="background-color: #f9f9f9; padding: 15px; text-align: center; border-radius: 5px; margin: 20px 0;">
+                        <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #6C5CE7;">${otp}</span>
                     </div>
-                `
-            });
-            mailer.send(message);
+                    <p>Kode ini berlaku selama 5 menit. Jangan bagikan kode ini kepada siapapun.</p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                    <p style="font-size: 12px; color: #888; text-align: center;">Email ini dikirim secara otomatis oleh sistem AURA via Brevo HTTP API.</p>
+                </div>
+            `;
+            sendBrevoEmailResend(email, "Kode OTP Baru AURA Anda", html);
             console.log("[resend-otp] ✅ Email sent to " + email);
         } catch (mailErr) {
             console.log("[resend-otp] ❌ Email error: " + mailErr);
