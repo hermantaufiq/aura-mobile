@@ -419,20 +419,19 @@ class ProfileScreen extends ConsumerWidget {
     final ts = AppTextStyles.of(context);
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text('Keluar', style: ts.headlineSmall),
         content: Text('Yakin ingin keluar dari AURA?', style: ts.bodyMedium),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogCtx),
               child: const Text('Batal')),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogCtx);
               await ref.read(authStateProvider.notifier).logout();
-              if (context.mounted) context.go('/auth/login');
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             child: const Text('Keluar'),

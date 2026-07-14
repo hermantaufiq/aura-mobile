@@ -166,7 +166,6 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                           onPressed: () {
                             Navigator.pop(ctx);
                             ref.read(authStateProvider.notifier).logout();
-                            context.go('/admin/login');
                           },
                           style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
                           child: const Text('Keluar'),
