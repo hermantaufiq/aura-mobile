@@ -44,9 +44,10 @@ class AiChatState {
 class AiChatNotifier extends StateNotifier<AiChatState> {
   final AiService _aiService;
   final String userId;
+  final Ref ref;
   final _logger = Logger();
 
-  AiChatNotifier(this._aiService, this.userId)
+  AiChatNotifier(this._aiService, this.userId, this.ref)
       : super(const AiChatState()) {
     _init();
   }
@@ -120,6 +121,15 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         if (success) {
           executedIntent = intent;
           _logger.i('Intent executed: ${intent.action.name}');
+          
+          // Refresh UI data
+          if (intent.action == AiAction.createTask || intent.action == AiAction.updateTaskStatus) {
+            ref.invalidate(taskProvider);
+            ref.invalidate(taskStatsProvider);
+          } else if (intent.action == AiAction.createFinance) {
+            ref.invalidate(financeProvider);
+            ref.invalidate(totalBalanceProvider);
+          }
         }
       }
 
@@ -205,5 +215,6 @@ final aiChatProvider =
   return AiChatNotifier(
     ref.read(aiServiceProvider),
     userId,
+    ref,
   );
 });
