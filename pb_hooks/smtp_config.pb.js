@@ -32,10 +32,10 @@ onAfterBootstrap((e) => {
         settings.meta.senderAddress = senderAddr;
         settings.meta.senderName    = senderName;
 
-        // Correct API for v0.22
-        $app.save(settings);
+        // Correct API for v0.22 JSVM is $app.dao().saveSettings()
+        $app.dao().saveSettings(settings);
 
-        console.log("✅ [smtp_config] SMTP saved via $app.save()! " + smtpHost + ":" + smtpPort + " / " + smtpUser);
+        console.log("✅ [smtp_config] SMTP saved via $app.dao().saveSettings()! " + smtpHost + ":" + smtpPort + " / " + smtpUser);
     } catch (err) {
         console.log("❌ [smtp_config] Error: " + err);
     }
