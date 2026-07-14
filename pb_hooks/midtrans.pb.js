@@ -46,6 +46,9 @@ routerAdd("POST", "/api/midtrans/checkout", (c) => {
   } else if (planType === "yearly") {
     price = 499000;
     name = "AURA Premium 1 Tahun";
+  } else if (planType === "test") {
+    price = 1;        // 🧪 Khusus uji coba pembayaran asli
+    name = "AURA Premium Test (1 Hari)";
   }
 
   try {
@@ -193,6 +196,8 @@ routerAdd("POST", "/api/midtrans/webhook", (c) => {
         let daysToAdd = 30; // default promo/monthly
         if (planType === "yearly") {
           daysToAdd = 365;
+        } else if (planType === "test") {
+          daysToAdd = 1; // 🧪 Test plan hanya 1 hari
         }
 
         const now = new Date();

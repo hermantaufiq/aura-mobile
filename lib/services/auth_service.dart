@@ -158,7 +158,16 @@ class AuthService {
         await PocketBaseService.instance.persistAuthNow();
         return user;
       }
-    } catch (_) {}
+    } catch (e) {
+      // Jika user tidak ditemukan (404) atau token tidak valid (401),
+      // hapus sesi agar tidak loop error terus-menerus
+      final errStr = e.toString();
+      if (errStr.contains('404') || errStr.contains('401') || errStr.contains('403')) {
+        _logger.w('⚠️ User not found or unauthorized — clearing stale session');
+        await logout();
+        return null;
+      }
+    }
 
     try {
       final auth = await _pb.collection(AppConstants.colUsers).authRefresh(
@@ -168,7 +177,14 @@ class AuthService {
       await PocketBaseService.instance.saveUserCache(user);
       await PocketBaseService.instance.persistAuthNow();
       return user;
-    } catch (_) {}
+    } catch (e) {
+      // Token expired atau user dihapus — clear session
+      final errStr = e.toString();
+      if (errStr.contains('401') || errStr.contains('403') || errStr.contains('404')) {
+        _logger.w('⚠️ Auth refresh failed — clearing stale session');
+        await logout();
+      }
+    }
 
     return null;
   }

@@ -27,6 +27,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
     String priceText = 'Rp 49.000';
     if (_selectedPlan == 'promo') priceText = 'Rp 29.000';
     if (_selectedPlan == 'yearly') priceText = 'Rp 499.000';
+    if (_selectedPlan == 'test') priceText = 'Rp 1';  // 🧪 Test plan
 
     showModalBottomSheet(
       context: context,
@@ -452,7 +453,7 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                       title: 'Bulanan',
                       price: 'Rp 49.000',
                       subtitle: 'Ditagih setiap bulan.',
-                      isRecommended: isPremium, // Jadi rekomendasi jika sudah premium (karena promo hilang)
+                      isRecommended: isPremium,
                       ts: ts,
                     ),
 
@@ -461,6 +462,15 @@ class _PremiumScreenState extends ConsumerState<PremiumScreen> {
                       title: 'Tahunan',
                       price: 'Rp 499.000',
                       subtitle: 'Hemat ~15% dibanding bulanan.',
+                      ts: ts,
+                    ),
+
+                    // 🧪 Test plan khusus developer
+                    _buildPlanCard(
+                      planId: 'test',
+                      title: '🧪 Test Pembayaran',
+                      price: 'Rp 1',
+                      subtitle: 'Hanya untuk uji coba Midtrans asli.',
                       ts: ts,
                     ),
                   ],
