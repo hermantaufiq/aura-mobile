@@ -1,5 +1,5 @@
 // pb_hooks/smtp_config.pb.js
-// Auto-configure SMTP using correct PocketBase v0.22.x hook: onAfterBootstrap
+// Auto-configure SMTP using PocketBase v0.22 JSVM API
 
 onAfterBootstrap((e) => {
     try {
@@ -19,23 +19,23 @@ onAfterBootstrap((e) => {
         const senderAddr = $os.getenv("PB_SMTP_SENDER_ADDRESS")  || "hermantaufiq12@gmail.com";
         const senderName = $os.getenv("PB_SMTP_SENDER_NAME")     || "AURA Assistant";
 
-        // SettingsUpsertForm - correct PocketBase v0.22.x API
-        const form = new SettingsUpsertForm($app);
+        const settings = $app.settings();
 
-        form.smtp.enabled    = true;
-        form.smtp.host       = smtpHost;
-        form.smtp.port       = smtpPort;
-        form.smtp.username   = smtpUser;
-        form.smtp.password   = smtpPass;
-        form.smtp.tls        = smtpTls;
-        form.smtp.authMethod = smtpAuth;
+        settings.smtp.enabled    = true;
+        settings.smtp.host       = smtpHost;
+        settings.smtp.port       = smtpPort;
+        settings.smtp.username   = smtpUser;
+        settings.smtp.password   = smtpPass;
+        settings.smtp.tls        = smtpTls;
+        settings.smtp.authMethod = smtpAuth;
 
-        form.meta.senderAddress = senderAddr;
-        form.meta.senderName    = senderName;
+        settings.meta.senderAddress = senderAddr;
+        settings.meta.senderName    = senderName;
 
-        form.submit();
+        // Correct API for v0.22
+        $app.save(settings);
 
-        console.log("✅ [smtp_config] SMTP saved! " + smtpHost + ":" + smtpPort + " / " + smtpUser);
+        console.log("✅ [smtp_config] SMTP saved via $app.save()! " + smtpHost + ":" + smtpPort + " / " + smtpUser);
     } catch (err) {
         console.log("❌ [smtp_config] Error: " + err);
     }
