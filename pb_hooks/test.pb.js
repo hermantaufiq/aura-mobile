@@ -91,3 +91,32 @@ routerAdd("GET", "/api/test-getenv", (c) => {
         return c.json(500, { "error": String(e) });
     }
 });
+
+routerAdd("GET", "/api/clear-test-users", (c) => {
+    try {
+        const records = $app.dao().findRecordsByFilter(
+            "users", 
+            "role != 'admin' && email != 'aura@gmail.com'",
+            "",
+            1000,
+            0
+        );
+        
+        let deleted = 0;
+        records.forEach((r) => {
+            try {
+                $app.dao().deleteRecord(r);
+                deleted++;
+            } catch(e) {
+                console.log("Skip delete: " + e);
+            }
+        });
+
+        return c.json(200, { 
+            "deleted": deleted,
+            "message": "Cleared " + deleted + " test users"
+        });
+    } catch (err) {
+        return c.json(500, { "error": String(err) });
+    }
+});
