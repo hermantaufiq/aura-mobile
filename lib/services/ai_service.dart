@@ -114,7 +114,14 @@ Catatan: Responmu akan langsung dirender sebagai Markdown, jadi pastikan formatn
           final f = intent.fields;
           final title = (f['title'] as String?) ?? 'Tugas Baru';
           final priority = (f['priority'] as String?) ?? 'medium';
-          final offsetDays = (f['deadline_offset_days'] as num?)?.toInt();
+          
+          int? offsetDays;
+          if (f['deadline_offset_days'] is num) {
+            offsetDays = (f['deadline_offset_days'] as num).toInt();
+          } else if (f['deadline_offset_days'] is String) {
+            offsetDays = int.tryParse(f['deadline_offset_days'] as String);
+          }
+
           final description = (f['description'] as String?) ?? '';
           final deadline = offsetDays != null
               ? DateTime.now().add(Duration(days: offsetDays))
@@ -132,7 +139,14 @@ Catatan: Responmu akan langsung dirender sebagai Markdown, jadi pastikan formatn
           final f = intent.fields;
           final type = (f['type'] as String?) ?? 'expense';
           final category = (f['category'] as String?) ?? 'Lainnya';
-          final amount = (f['amount'] as num?)?.toDouble() ?? 0;
+          
+          double amount = 0;
+          if (f['amount'] is num) {
+            amount = (f['amount'] as num).toDouble();
+          } else if (f['amount'] is String) {
+            amount = double.tryParse(f['amount'] as String) ?? 0;
+          }
+
           final note = (f['note'] as String?) ?? '';
           await _financeService.createFinance(
             userId: userId,
