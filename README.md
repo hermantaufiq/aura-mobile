@@ -11,7 +11,7 @@ Aplikasi Flutter yang sedang dalam tahap pengembangan.
 | Naffahal Lucky Mubarok         | ...1423 |
 | Muhammad Awalul Falah           | ...1414 |
 | Muhammad Farih Fadli            | ...1416 |
-| Muhammad Bahtiar Alfariza       | ...1426 |
+| Muhammad Bahtiar Alfariza       | ...1418 |
 
 ## Getting Started
 
