@@ -1,17 +1,26 @@
-# aura_app
+# Aura App
 
-A new Flutter project.
+Aplikasi Flutter yang sedang dalam tahap pengembangan.
+
+## Anggota Kelompok
+
+| Nama                          | NIM     |
+|-------------------------------|---------|
+| Muhamad Hermawan Taufiq       | ...1421 |
+| Ahmad Ari Wibowo               | ...1419 |
+| Naffahal Lucky Mubarok         | ...1423 |
+| Muhammad Awalul Falah           | ...1414 |
+| Muhammad Farih Fadli            | ...1416 |
+| Muhammad Bahtiar Alfariza       | ...1426 |
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+Proyek ini adalah titik awal untuk aplikasi Flutter.
 
-A few resources to get you started if this is your first Flutter project:
+Beberapa referensi yang bisa membantu jika ini proyek Flutter pertamamu:
 
 - [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
 - [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
 - [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Untuk bantuan lebih lanjut memulai pengembangan Flutter, lihat [dokumentasi online](https://docs.flutter.dev/) yang menyediakan tutorial, contoh kode, panduan pengembangan mobile, serta referensi API lengkap.
